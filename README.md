@@ -7,8 +7,6 @@ Team / Individual: Kazuya Miyata
 - **Reporting API:** https://reporting.kazuyamiyata.site/api/sessions
 
 ## Server Access
-- **IP Address:** 138.68.249.83
-- **SSH User:** kmiyata
 - **SSH Key Required:** Use standard class SSH key
 
 ## How to Test

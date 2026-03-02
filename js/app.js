@@ -15,19 +15,21 @@ function setRendercontent(content) {
 
 function loginView() {
     setRendercontent(`
-    <form id="login-form">
-        <h1>Analytics Dashboard</h1>
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" required autocomplete="email">
-        </div>
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required autocomplete="current-password">
-        </div>
-        <div id="error-message" class="error" hidden></div>
-        <button type="submit">Sign In</button>
-    </form>
+    <div style="border: 2px dashed #ccc; padding: 2rem; border-radius: 8px;">
+        <form id="login-form">
+            <h1>Analytics Dashboard</h1>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <div id="error-message" class="error" hidden></div>
+            <button type="submit">Sign In</button>
+        </form>
+    </div>
     `);
 }
 
@@ -80,6 +82,25 @@ document.getElementById('app-content').addEventListener('submit', async (e) => {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
 
-        // ... perform fetch ...
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                window.location.href = '#/overview';
+            } else {
+                errorDiv.textContent = data.error || 'Login failed';
+                errorDiv.hidden = false;
+            }
+        } catch (err) {
+            errorDiv.textContent = 'Network error. Please try again.';
+            errorDiv.hidden = false;
+        }
     }
 });

@@ -57,6 +57,8 @@ try {
                 $stmt = $pdo->query("SELECT * FROM activities");
                 echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
             }
+        } elseif ($resource === 'dashboard') {
+            echo json_encode(['user' => $_SESSION['user']]);
         } elseif ($resource === 'errors') {
             if ($id) {
                 $stmt = $pdo->prepare("SELECT * FROM errors WHERE session_id = ?");
@@ -80,6 +82,7 @@ try {
         } elseif ($resource === 'logout') {
             session_start();
             session_destroy();
+            setcookie(session_name(), '', time() - 3600, '/');
             echo json_encode(['success' => true]);
             exit;
         } else {

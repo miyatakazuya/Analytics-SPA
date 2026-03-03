@@ -13,7 +13,11 @@ function setRendercontent(content) {
     contentArea.innerHTML = content;
 }
 
-function loginView() {
+async function loginView() {
+    if (await returnAuth()) {
+        renderView('Logged In!', '');
+        return;
+    }
     setRendercontent(`
     <div style="border: 2px dashed #ccc; padding: 2rem; border-radius: 8px;">
         <form id="login-form">
@@ -33,12 +37,55 @@ function loginView() {
     `);
 }
 
-function overviewView() {
-    renderView('Overview Dashboard', 'show overview charts');
+async function returnAuth() {
+    try {
+        const res = await fetch('/api/dashboard', {
+            credentials: 'include',
+            cache: 'no-store'
+        });
+        if (res.status === 401) {
+            return false;
+        }
+        return true;
+    } catch (err) {
+        return false;
+    }
 }
 
-function adminView() {
-    renderView('Admin Panel', 'show admin stuff');
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/dashboard', {
+            credentials: 'include',
+            cache: 'no-store'
+        });
+        if (res.status === 401) {
+            window.location.hash = '#/login';
+            document.getElementById('login-status').textContent = 'Signed Out';
+            return null;
+        }
+
+        const data = await res.json();
+        document.getElementById('login-status').textContent = `Signed in as ${data.user.displayName}`;
+        return data;
+    } catch (err) {
+        window.location.hash = '#/login';
+        document.getElementById('login-status').textContent = 'Signed Out';
+        return null;
+    }
+}
+
+async function overviewView() {
+    const data = await checkAuth();
+    if (data) {
+        renderView('Overview Dashboard', 'Protected Analytics Area');
+    }
+}
+
+async function adminView() {
+    const data = await checkAuth();
+    if (data) {
+        renderView('Admin Panel', 'Protected Admin Area');
+    }
 }
 
 function notFoundView() {
@@ -103,4 +150,16 @@ document.getElementById('app-content').addEventListener('submit', async (e) => {
             errorDiv.hidden = false;
         }
     }
+});
+
+document.getElementById('logout-btn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include'
+    });
+
+    window.location.hash = '#/login';
+
+    document.getElementById('login-status').textContent = 'Signed Out';
 });

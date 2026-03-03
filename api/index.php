@@ -46,7 +46,19 @@ try {
                 echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
             } else {
                 $stmt = $pdo->query("SELECT * FROM pageviews");
-                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+                $raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                $stmtTop = $pdo->query("SELECT url, COUNT(*) as views FROM pageviews WHERE url != '' AND url IS NOT NULL GROUP BY url ORDER BY views DESC LIMIT 10");
+                $topPages = $stmtTop->fetchAll(PDO::FETCH_ASSOC);
+
+                $stmtByDay = $pdo->query("SELECT DATE(created_at) as day, COUNT(*) as views FROM pageviews GROUP BY day ORDER BY day ASC");
+                $byDay = $stmtByDay->fetchAll(PDO::FETCH_ASSOC);
+
+                echo json_encode([
+                    'raw' => $raw,
+                    'topPages' => $topPages,
+                    'byDay' => $byDay
+                ]);
             }
         } elseif ($resource === 'activities') {
             if ($id) {

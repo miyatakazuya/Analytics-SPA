@@ -9,6 +9,11 @@ Team / Individual: Kazuya Miyata
 ## Server Access
 - **SSH Key Required:** Use standard class SSH key
 
+## Test Accounts
+- **Admin:** `admin@site.com` / `password123`
+- **Data Analyst:** `analyst@site.com` / `password123`
+- **Report Viewer:** `viewer@site.com` / `password123`
+
 ## How to Test
 1. Visit `https://test.kazuyamiyata.site` and interact with the pages (click products, move mouse, browse to other pages, stay idle for 3 seconds).
 2. The `collector.js` script will aggregate interaction metrics, performance tracking, web vitals, static client data, and errors into JSON payloads.

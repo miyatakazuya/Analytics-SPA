@@ -4,63 +4,140 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Analytics Dashboard</title>
+  <title>Web Analytics Platform</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <style>
     body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
+      background-color: #f8f9fa;
+    }
+
+    .sidebar {
+      background-color: #212529;
       min-height: 100vh;
     }
 
-    header {
-      background: #333;
-      color: white;
-      padding: 1rem;
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-    }
-
-    header h2 {
-      margin: 0;
-      margin-right: 2rem;
-    }
-
-    header a {
-      color: white;
+    .sidebar a {
+      color: #adb5bd;
       text-decoration: none;
-      padding: 0.5rem 1rem;
-      background: #555;
-      border-radius: 4px;
+      padding: 10px 15px;
+      display: block;
+      border-radius: 5px;
+      margin-bottom: 5px;
     }
 
-    header a:hover {
-      background: #777;
+    .sidebar a:hover,
+    .sidebar a.active {
+      background-color: #343a40;
+      color: #fff;
     }
 
-    main {
+    .sidebar-heading {
+      color: #6c757d;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin: 15px 15px 5px 15px;
+    }
+
+    .top-navbar {
+      background-color: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, .04);
+    }
+
+    #app-content {
       padding: 2rem;
-      flex: 1;
     }
   </style>
 </head>
 
 <body>
-  <header>
-    <h2>SPA Dashboard</h2>
-    <a href="#/login">Login Route</a>
-    <a href="#/overview">Overview Route</a>
-    <a href="#/admin">Admin Route</a>
-    <div id="login-status" style="margin-right: 2em; margin-left: auto">Signed Out</div>
-    <a href="#" id="logout-btn" style="background: #d9534f;">Logout</a>
-  </header>
+  <noscript>
+    <div class="alert alert-danger text-center m-5" role="alert">
+      <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> JavaScript Required</h4>
+      <p>This analytics SPA requires JavaScript to function. Please enable JavaScript in your browser settings.</p>
+    </div>
+  </noscript>
 
-  <main id="app-content">
-  </main>
+  <div class="container-fluid" id="app-wrapper" style="display: none;">
+    <div class="row flex-nowrap">
+      <!-- Sidebar Navigation -->
+      <div class="col-auto col-md-3 col-xl-2 px-sm-2 px-0 sidebar d-none d-md-block" id="app-sidebar">
+        <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-4 text-white min-vh-100">
+          <a href="#/overview"
+            class="d-flex align-items-center pb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+            <span class="fs-5 fw-bold d-none d-sm-inline"><i
+                class="bi bi-bar-chart-fill me-2 text-primary"></i>Analytics</span>
+          </a>
+          <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start w-100" id="menu">
+            <li class="nav-item w-100">
+              <a href="#/overview" class="nav-link align-middle px-0" data-route="#/overview">
+                <i class="fs-4 bi-house"></i> <span class="ms-1 d-none d-sm-inline">Overview</span>
+              </a>
+            </li>
+            <div class="sidebar-heading mt-4">Dashboards</div>
+            <li class="w-100">
+              <a href="#/demographics" class="nav-link px-0 align-middle" data-route="#/demographics">
+                <i class="fs-4 bi-people"></i> <span class="ms-1 d-none d-sm-inline">Demographics</span>
+              </a>
+            </li>
+            <li class="w-100">
+              <a href="#/behavior" class="nav-link px-0 align-middle" data-route="#/behavior">
+                <i class="fs-4 bi-mouse2"></i> <span class="ms-1 d-none d-sm-inline">Behavior</span>
+              </a>
+            </li>
+            <li class="w-100">
+              <a href="#/performance" class="nav-link px-0 align-middle" data-route="#/performance">
+                <i class="fs-4 bi-speedometer2"></i> <span class="ms-1 d-none d-sm-inline">Performance</span>
+              </a>
+            </li>
+            <div class="sidebar-heading mt-4">Exports</div>
+            <li class="w-100">
+              <a href="#/reports" class="nav-link px-0 align-middle" data-route="#/reports">
+                <i class="fs-4 bi-file-earmark-pdf"></i> <span class="ms-1 d-none d-sm-inline">Saved Reports</span>
+              </a>
+            </li>
+          </ul>
+          <hr class="w-100 border-secondary">
+          <div class="dropdown pb-4 w-100">
+            <div
+              class="d-flex align-items-center text-white text-decoration-none w-100 p-2 border border-secondary rounded"
+              id="userBox">
+              <i class="bi bi-person-circle fs-4 me-2"></i>
+              <div class="d-none d-sm-inline overflow-hidden">
+                <strong id="login-status" class="d-block text-truncate" style="max-width: 120px;">Signed Out</strong>
+              </div>
+            </div>
+            <a href="#" id="logout-btn" class="btn btn-sm btn-outline-danger w-100 mt-2 d-none"><i
+                class="bi bi-box-arrow-right me-1"></i>Sign Out</a>
+          </div>
+        </div>
+      </div>
 
+      <!-- Main Content Area -->
+      <div class="col py-0 px-0 d-flex flex-column h-sm-100 w-100 w-md-auto overflow-hidden">
+        <!-- Top Nav (Mobile mostly) -->
+        <nav
+          class="navbar navbar-light bg-light top-navbar px-4 py-3 d-flex justify-content-between align-items-center">
+          <h4 class="m-0 text-dark fw-bold" id="page-title">Dashboard</h4>
+          <div id="top-actions"></div>
+        </nav>
+
+        <main class="flex-grow-1 overflow-auto" id="app-content">
+          <!-- Javascript will inject views here -->
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Reveal app wrapper only if JS is enabled
+    document.getElementById('app-wrapper').style.display = 'block';
+  </script>
+  <!-- html2pdf Client-side library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="js/app.js"></script>
 </body>
 

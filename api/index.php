@@ -27,85 +27,32 @@ try {
             echo json_encode(['error' => 'Unauthorized. Please log in.']);
             exit;
         }
+
+        // RBAC Logic
+        $role = $_SESSION['user']['role'];
+        if ($role === 'viewer' && !in_array($resource, ['reports', 'dashboard'])) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Forbidden. Viewers cannot access raw data.']);
+            exit;
+        }
     }
 
     if ($method === 'GET') {
-        if ($resource === 'sessions') {
-            if ($id) {
-                $stmt = $pdo->prepare("SELECT * FROM sessions WHERE session_id = ?");
-                $stmt->execute([$id]);
-                echo json_encode($stmt->fetch(PDO::FETCH_ASSOC));
-            } else {
-                $stmt = $pdo->query("SELECT * FROM sessions");
-                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-            }
-        } elseif ($resource === 'pageviews') {
-            if ($id) {
-                $stmt = $pdo->prepare("SELECT * FROM pageviews WHERE session_id = ?");
-                $stmt->execute([$id]);
-                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-            } else {
-                $stmt = $pdo->query("SELECT * FROM pageviews");
-                $raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($resource === 'data') {
+            $category = $_GET['category'] ?? '';
 
+            if ($category === 'performance') {
+                // Existing pageviews logic + error counts
                 $stmtTop = $pdo->query("SELECT url, COUNT(*) as views FROM pageviews WHERE url != '' AND url IS NOT NULL GROUP BY url ORDER BY views DESC LIMIT 10");
                 $topPages = $stmtTop->fetchAll(PDO::FETCH_ASSOC);
 
                 $stmtByDay = $pdo->query("SELECT DATE(created_at) as day, COUNT(*) as views FROM pageviews GROUP BY day ORDER BY day ASC");
                 $byDay = $stmtByDay->fetchAll(PDO::FETCH_ASSOC);
 
-                echo json_encode([
-                    'raw' => $raw,
-                    'topPages' => $topPages,
-                    'byDay' => $byDay
-                ]);
-            }
-        } elseif ($resource === 'activities') {
-            if ($id) {
-                $stmt = $pdo->prepare("SELECT * FROM activities WHERE session_id = ?");
-                $stmt->execute([$id]);
-                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-            } else {
-                $stmt = $pdo->query("SELECT * FROM activities");
-                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-            }
-        } elseif ($resource === 'dashboard') {
-            echo json_encode(['user' => $_SESSION['user']]);
-        } elseif ($resource === 'errors') {
-            if ($id) {
-                $stmt = $pdo->prepare("SELECT * FROM errors WHERE session_id = ?");
-                $stmt->execute([$id]);
-                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-            } else {
-                $stmt = $pdo->query("SELECT * FROM errors");
-                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-            }
-        } else {
-            http_response_code(404);
-        }
-    } elseif ($method === 'POST') {
-        if ($resource === 'login') {
-            $input = json_decode(file_get_contents('php://input'), true);
-            $email = $input['email'] ?? '';
-            $password = $input['password'] ?? '';
+                $stmtErrors = $pdo->query("SELECT error_type, COUNT(*) as count FROM errors GROUP BY error_type ORDER BY count DESC LIMIT 5");
+                $topErrors = $stmtErrors->fetchAll(PDO::FETCH_ASSOC);
 
-            require 'login_api.php';
-            exit;
-        } elseif ($resource === 'logout') {
-            session_start();
-            session_destroy();
-            setcookie(session_name(), '', time() - 3600, '/');
-            echo json_encode(['success' => true]);
-            exit;
-        } else {
-            http_response_code(404);
-            echo json_encode(['error' => 'Resource not found']);
-        }
-    } else {
-        http_response_code(405);
-        echo json_encode(['error' => 'Method not allowed for reporting API']);
-    }
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Database error', 'details' => $e->getMessage()]);
-}
+                echo json_encode([
+                    'topPages' => $topPages,
+                    'byDay' => $byDay,
+                    'topErrors' => $topErrors

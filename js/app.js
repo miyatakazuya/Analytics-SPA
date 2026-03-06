@@ -150,3 +150,66 @@ function renderTable(container, keys, rows) {
     wrapper.appendChild(table);
     container.appendChild(wrapper);
 }
+
+async function overviewView() {
+    updateNavActive(window.location.hash || '#/overview');
+    const data = await checkAuth();
+    if (data) {
+        setRendercontent('Performance Overview', `
+            <div class="row g-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                            <h5 class="card-title mb-0">Pageviews Over Time</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="pageviews-chart" class="w-100" style="height: 250px; background: #fff;"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                            <h5 class="card-title mb-0">Top Pages</h5>
+                        </div>
+                        <div class="card-body" id="top-pages-table">
+                            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                            <h5 class="card-title mb-0">Top Errors</h5>
+                        </div>
+                        <div class="card-body" id="top-errors-table">
+                            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `, getSaveReportButton('performance', 'currentReportData'));
+
+        try {
+            const res = await fetch('/api/data?category=performance', { credentials: 'include', cache: 'no-store' });
+            if (res.ok) {
+                const pageData = await res.json();
+                attachSaveVariables(pageData);
+
+                renderTable(document.getElementById('top-pages-table'),
+                    [{ label: 'URL', key: 'url' }, { label: 'Views', key: 'views' }],
+                    pageData.topPages);
+
+                renderTable(document.getElementById('top-errors-table'),
+                    [{ label: 'Error Type', key: 'error_type' }, { label: 'Count', key: 'count' }],
+                    pageData.topErrors);
+
+                renderLineChart(document.getElementById('pageviews-chart'), pageData.byDay, 'day', 'views');
+            } else {
+                document.getElementById('top-pages-table').innerHTML = '<div class="alert alert-danger">Failed to load data (Server Error).</div>';
+            }
+        } catch (e) {
+            document.getElementById('top-pages-table').innerHTML = '<div class="alert alert-danger">Failed to load data (Network Error).</div>';
+        }
+    }
+}

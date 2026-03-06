@@ -213,3 +213,139 @@ async function overviewView() {
         }
     }
 }
+
+function renderLineChart(canvas, dataPoints, labelKey, valueKey) {
+    if (!canvas || !dataPoints || dataPoints.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width = canvas.offsetWidth;
+    const H = canvas.height = 250;
+    const pad = { top: 20, right: 20, bottom: 40, left: 60 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const values = dataPoints.map(d => Number(d[valueKey]));
+    const maxVal = Math.max(...values, 1);
+
+    // Axes
+    ctx.strokeStyle = '#ddd';
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top);
+    ctx.lineTo(pad.left, H - pad.bottom);
+    ctx.lineTo(W - pad.right, H - pad.bottom);
+    ctx.stroke();
+
+    // Line
+    ctx.strokeStyle = '#2E86C1';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    dataPoints.forEach((d, i) => {
+        const x = pad.left + (i / (dataPoints.length - 1 || 1)) * plotW;
+        const y = H - pad.bottom - (values[i] / maxVal) * plotH;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Points
+    ctx.fillStyle = '#2E86C1';
+    dataPoints.forEach((d, i) => {
+        const x = pad.left + (i / (dataPoints.length - 1 || 1)) * plotW;
+        const y = H - pad.bottom - (values[i] / maxVal) * plotH;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // X labels (show first, middle, last)
+    ctx.fillStyle = '#666';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    [0, Math.floor(dataPoints.length / 2), dataPoints.length - 1].forEach(i => {
+        if (!dataPoints[i]) return;
+        const x = pad.left + (i / (dataPoints.length - 1 || 1)) * plotW;
+        ctx.fillText(dataPoints[i][labelKey], x, H - pad.bottom + 20);
+    });
+
+    // Y labels
+    ctx.textAlign = 'right';
+    ctx.fillText(maxVal.toLocaleString(), pad.left - 8, pad.top + 10);
+    ctx.fillText('0', pad.left - 8, H - pad.bottom + 5);
+}
+async function demographicsView() {
+    updateNavActive('#/demographics');
+    const data = await checkAuth();
+    if (!data) return;
+
+    setRendercontent('Demographics', `
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Browser Market Share</h5></div>
+                    <div class="card-body" id="browser-table">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                 <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Network Types</h5></div>
+                    <div class="card-body" id="network-table">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `, getSaveReportButton('demographics', 'currentReportData'));
+
+    try {
+        const res = await fetch('/api/data?category=demographics', { credentials: 'include', cache: 'no-store' });
+        if (res.ok) {
+            const apiData = await res.json();
+            attachSaveVariables(apiData);
+            renderTable(document.getElementById('browser-table'),
+                [{ label: 'Browser', key: 'browser' }, { label: 'Users', key: 'count' }], apiData.browsers);
+            renderTable(document.getElementById('network-table'),
+                [{ label: 'Network', key: 'network_type' }, { label: 'Users', key: 'count' }], apiData.networks);
+        }
+    } catch (e) { }
+}
+
+async function behaviorView() {
+    updateNavActive('#/behavior');
+    const data = await checkAuth();
+    if (!data) return;
+
+    setRendercontent('User Behavior', `
+        <div class="row g-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Average Active Time Per Day (Seconds)</h5></div>
+                    <div class="card-body">
+                        <canvas id="active-time-chart" class="w-100" style="height: 250px; background: #fff;"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                 <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Most Clicked HTML Tags</h5></div>
+                    <div class="card-body" id="clicks-table">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `, getSaveReportButton('behavior', 'currentReportData'));
+
+    try {
+        const res = await fetch('/api/data?category=behavior', { credentials: 'include', cache: 'no-store' });
+        if (res.ok) {
+            const apiData = await res.json();
+            attachSaveVariables(apiData);
+            renderTable(document.getElementById('clicks-table'),
+                [{ label: 'HTML Node', key: 'element_tag' }, { label: 'Total Clicks', key: 'clicks' }], apiData.topClicks);
+            renderLineChart(document.getElementById('active-time-chart'), apiData.activeTime, 'day', 'avg_seconds');
+        }
+    } catch (e) { }
+}
+

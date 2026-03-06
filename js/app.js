@@ -1,38 +1,67 @@
 const contentArea = document.getElementById('app-content');
+const pageTitle = document.getElementById('page-title');
+const topActions = document.getElementById('top-actions');
+
+function updateNavActive(hash) {
+    document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+    const activeLink = document.querySelector(`.nav-link[data-route="${hash}"]`);
+    if (activeLink) activeLink.classList.add('active');
+}
+
+function setHeader(title, actionsHtml = '') {
+    pageTitle.textContent = title;
+    topActions.innerHTML = actionsHtml;
+}
 
 function renderView(title, content) {
+    setHeader(title);
     contentArea.innerHTML = `
-        <div style="border: 2px dashed #ccc; padding: 2rem; border-radius: 8px;">
-            <h1>${title}</h1>
-            <p>${content}</p>
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <p class="text-muted mb-0">${content}</p>
+            </div>
         </div>
     `;
 }
 
-function setRendercontent(content) {
+function setRendercontent(title, content, actionsHtml = '') {
+    setHeader(title, actionsHtml);
     contentArea.innerHTML = content;
 }
 
 async function loginView() {
     if (await returnAuth()) {
-        renderView('Logged In!', '');
+        window.location.hash = '#/overview';
         return;
     }
-    setRendercontent(`
-    <div style="border: 2px dashed #ccc; padding: 2rem; border-radius: 8px;">
-        <form id="login-form">
-            <h1>Analytics Dashboard</h1>
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" required autocomplete="email">
+    document.getElementById('app-sidebar').classList.add('d-none'); // Hide sidebar on login
+    document.querySelector('.top-navbar').classList.add('d-none'); // Hide topbar
+
+    setRendercontent('Login', `
+    <div class="d-flex justify-content-center align-items-center vh-100 w-100 bg-light position-absolute top-0 start-0" style="z-index: 1050;">
+        <div class="card border-0 shadow-lg" style="width: 100%; max-width: 400px;">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="bi bi-bar-chart-fill text-primary" style="font-size: 3rem;"></i>
+                    <h2 class="fw-bold mt-2">Analytics Login</h2>
+                </div>
+                <form id="login-form">
+                    <div class="mb-3">
+                        <label for="email" class="form-label text-muted">Email address</label>
+                        <input type="email" class="form-control form-control-lg" id="email" required autocomplete="email">
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label text-muted">Password</label>
+                        <input type="password" class="form-control form-control-lg" id="password" required autocomplete="current-password">
+                    </div>
+                    <div id="error-message" class="alert alert-danger" hidden></div>
+                    <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">Sign In</button>
+                    <div class="text-center mt-3 text-muted small">
+                        Use viewer@site.com / password123
+                    </div>
+                </form>
             </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required autocomplete="current-password">
-            </div>
-            <div id="error-message" class="error" hidden></div>
-            <button type="submit">Sign In</button>
-        </form>
+        </div>
     </div>
     `);
 }
@@ -61,223 +90,63 @@ async function checkAuth() {
         if (res.status === 401) {
             window.location.hash = '#/login';
             document.getElementById('login-status').textContent = 'Signed Out';
+            document.getElementById('logout-btn').classList.add('d-none');
             return null;
         }
 
         const data = await res.json();
-        document.getElementById('login-status').textContent = `Signed in as ${data.user.displayName}`;
+
+        // Ensure UI elements are visible for logged in users
+        document.getElementById('app-sidebar').classList.remove('d-none');
+        document.querySelector('.top-navbar').classList.remove('d-none');
+
+        document.getElementById('login-status').textContent = data.user.displayName;
+        document.getElementById('logout-btn').classList.remove('d-none');
+
+        // Store role globally to easily toggle "Save Report" button visibility
+        window.userRole = data.user.role;
+
         return data;
     } catch (err) {
         window.location.hash = '#/login';
         document.getElementById('login-status').textContent = 'Signed Out';
+        document.getElementById('logout-btn').classList.add('d-none');
         return null;
     }
 }
 
-function renderTable(container, pages) {
+function renderTable(container, keys, rows) {
     container.innerHTML = '';
     const table = document.createElement('table');
-    table.style.width = '100%';
-    table.style.borderCollapse = 'collapse';
-    table.style.marginTop = '1rem';
-
-    table.innerHTML = `
-        <style>
-            th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
-            th { background: #eee; }
-        </style>
-    `;
+    table.className = 'table table-hover table-bordered bg-white shadow-sm mb-0';
 
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>URL</th><th>Views</th></tr>';
+    thead.className = 'table-light';
+
+    // Auto generate headers from keys
+    let headerRow = '<tr>';
+    keys.forEach(k => { headerRow += `<th>${k.label}</th>`; });
+    headerRow += '</tr>';
+    thead.innerHTML = headerRow;
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    (pages || []).forEach(p => {
+    (rows || []).forEach(row => {
         const tr = document.createElement('tr');
-
-        const tdUrl = document.createElement('td');
-        tdUrl.textContent = p.url; // XSS Safe
-
-        const tdViews = document.createElement('td');
-        tdViews.textContent = Number(p.views).toLocaleString();
-
-        tr.appendChild(tdUrl);
-        tr.appendChild(tdViews);
+        keys.forEach(k => {
+            const td = document.createElement('td');
+            let val = row[k.key];
+            // Format numbers
+            if (!isNaN(val) && val !== '') val = Number(val).toLocaleString();
+            td.textContent = val; // XSS safe
+            tr.appendChild(td);
+        });
         tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    container.appendChild(table);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'table-responsive rounded';
+    wrapper.appendChild(table);
+    container.appendChild(wrapper);
 }
-
-async function overviewView() {
-    const data = await checkAuth();
-    if (data) {
-        setRendercontent(`
-            <div style="border: 2px dashed #ccc; padding: 2rem; border-radius: 8px;">
-                <h1>Overview Dashboard</h1>
-                <p>Protected Analytics Area</p>
-                
-                <h2>Pageviews Over Time</h2>
-                <canvas id="pageviews-chart" width="800" height="300" style="display: block; width: 100%; max-width: 800px; background: #fff;"></canvas>
-
-                <h2>Top Pages</h2>
-                <div id="top-pages-table">Loading data...</div>
-            </div>
-        `);
-
-        try {
-            const res = await fetch('/api/pageviews', { credentials: 'include', cache: 'no-store' });
-            if (res.ok) {
-                const pageData = await res.json();
-                renderTable(document.getElementById('top-pages-table'), pageData.topPages);
-                renderLineChart(document.getElementById('pageviews-chart'), pageData.byDay, 'day', 'views');
-            } else {
-                document.getElementById('top-pages-table').textContent = 'Failed to load data (Server Error).';
-            }
-        } catch (e) {
-            document.getElementById('top-pages-table').textContent = 'Failed to load data (Network Error).';
-        }
-    }
-}
-
-function renderLineChart(canvas, dataPoints, labelKey, valueKey) {
-    if (!canvas || !dataPoints || dataPoints.length === 0) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width = canvas.offsetWidth;
-    const H = canvas.height = 250;
-    const pad = { top: 20, right: 20, bottom: 40, left: 60 };
-    const plotW = W - pad.left - pad.right;
-    const plotH = H - pad.top - pad.bottom;
-
-    ctx.clearRect(0, 0, W, H);
-
-    const values = dataPoints.map(d => Number(d[valueKey]));
-    const maxVal = Math.max(...values, 1);
-
-    // Axes
-    ctx.strokeStyle = '#ddd';
-    ctx.beginPath();
-    ctx.moveTo(pad.left, pad.top);
-    ctx.lineTo(pad.left, H - pad.bottom);
-    ctx.lineTo(W - pad.right, H - pad.bottom);
-    ctx.stroke();
-
-    // Line
-    ctx.strokeStyle = '#2E86C1';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    dataPoints.forEach((d, i) => {
-        const x = pad.left + (i / (dataPoints.length - 1 || 1)) * plotW;
-        const y = H - pad.bottom - (values[i] / maxVal) * plotH;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-
-    // Points
-    ctx.fillStyle = '#2E86C1';
-    dataPoints.forEach((d, i) => {
-        const x = pad.left + (i / (dataPoints.length - 1 || 1)) * plotW;
-        const y = H - pad.bottom - (values[i] / maxVal) * plotH;
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fill();
-    });
-
-    // X labels (show first, middle, last)
-    ctx.fillStyle = '#666';
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    [0, Math.floor(dataPoints.length / 2), dataPoints.length - 1].forEach(i => {
-        if (!dataPoints[i]) return;
-        const x = pad.left + (i / (dataPoints.length - 1 || 1)) * plotW;
-        ctx.fillText(dataPoints[i][labelKey], x, H - pad.bottom + 20);
-    });
-
-    // Y labels
-    ctx.textAlign = 'right';
-    ctx.fillText(maxVal.toLocaleString(), pad.left - 8, pad.top + 10);
-    ctx.fillText('0', pad.left - 8, H - pad.bottom + 5);
-}
-async function adminView() {
-    const data = await checkAuth();
-    if (data) {
-        renderView('Admin Panel', '#TODO: do this ltr');
-    }
-}
-
-function notFoundView() {
-    renderView('404 Not Found', 'requested route does not exist');
-}
-
-// Router
-function router() {
-    let hash = window.location.hash;
-
-    if (!hash || hash === '') {
-        hash = '#/login';
-        window.history.replaceState(null, null, document.location.pathname + hash);
-    }
-
-    console.log(`Navigating to: ${hash}`);
-
-    switch (hash) {
-        case '#/login':
-            loginView();
-            break;
-        case '#/overview':
-            overviewView();
-            break;
-        case '#/admin':
-            adminView();
-            break;
-        default:
-            notFoundView();
-            break;
-    }
-}
-
-window.addEventListener('hashchange', router);
-window.addEventListener('DOMContentLoaded', router);
-
-document.getElementById('app-content').addEventListener('submit', async (e) => {
-    if (e.target.id === 'login-form') {
-        e.preventDefault();
-
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-
-        try {
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ email, password })
-            });
-
-            const data = await res.json();
-
-            if (res.ok && data.success) {
-                window.location.href = '#/overview';
-            } else {
-                errorDiv.textContent = data.error || 'Login failed';
-                errorDiv.hidden = false;
-            }
-        } catch (err) {
-            errorDiv.textContent = 'Network error. Please try again.';
-            errorDiv.hidden = false;
-        }
-    }
-});
-
-document.getElementById('logout-btn').addEventListener('click', async (e) => {
-    e.preventDefault();
-    await fetch('/api/logout', {
-        method: 'POST',
-        credentials: 'include'
-    });
-
-    window.location.hash = '#/login';
-
-    document.getElementById('login-status').textContent = 'Signed Out';
-});

@@ -349,3 +349,164 @@ async function behaviorView() {
     } catch (e) { }
 }
 
+async function reportsView() {
+    updateNavActive('#/reports');
+    const data = await checkAuth();
+    if (!data) return;
+
+    setRendercontent('Saved Reports', `
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="reports-list">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Title</th>
+                                <th>Category</th>
+                                <th>Author</th>
+                                <th>Date</th>
+                                <th class="text-end pe-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Report Modal -->
+        <div class="modal fade" id="viewReportModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header border-bottom-0 pb-0">
+                        <h5 class="modal-title fw-bold" id="vr-title">...</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body pt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-4 text-muted small">
+                            <span><i class="bi bi-person me-1"></i><span id="vr-author">...</span></span>
+                            <span><i class="bi bi-calendar me-1"></i><span id="vr-date">...</span></span>
+                            <span class="badge bg-secondary text-uppercase" id="vr-category">...</span>
+                        </div>
+                        
+                        <div class="card border border-primary-subtle bg-primary-subtle shadow-sm mb-4">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-primary fw-bold"><i class="bi bi-chat-left-text me-2"></i>Analyst Comments</h6>
+                                <p class="card-text text-dark" id="vr-comments" style="white-space: pre-wrap;">...</p>
+                            </div>
+                        </div>
+
+                        <h6 class="fw-bold mb-3"><i class="bi bi-database me-2"></i>Data Snapshot</h6>
+                        <div class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;">
+                            <pre id="vr-data" class="mb-0" style="font-size: 0.85rem;"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+
+    try {
+        const res = await fetch('/api/reports', { credentials: 'include', cache: 'no-store' });
+        if (res.ok) {
+            const reports = await res.json();
+            const tbody = document.querySelector('#reports-list tbody');
+            tbody.innerHTML = '';
+
+            if (reports.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No reports saved yet.</td></tr>';
+                return;
+            }
+
+            // Expose for click handler
+            window.loadedReports = reports;
+
+            reports.forEach((r, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="ps-4 fw-medium">${r.title}</td>
+                    <td><span class="badge bg-info text-dark">${r.category}</span></td>
+                    <td class="text-muted small">${r.author_email}</td>
+                    <td class="text-muted small">${new Date(r.created_at).toLocaleString()}</td>
+                    <td class="text-end pe-4">
+                        <button class="btn btn-sm btn-outline-primary view-report-btn" data-idx="${idx}">View Data</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Re-bind click handlers for the view buttons
+            document.querySelectorAll('.view-report-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const r = window.loadedReports[e.target.getAttribute('data-idx')];
+                    document.getElementById('vr-title').textContent = r.title;
+                    document.getElementById('vr-author').textContent = r.author_email;
+                    document.getElementById('vr-date').textContent = new Date(r.created_at).toLocaleString();
+                    document.getElementById('vr-category').textContent = r.category;
+                    document.getElementById('vr-comments').textContent = r.comments || '(No comments provided)';
+
+                    try {
+                        const parsed = typeof r.data_snapshot === 'string' ? JSON.parse(r.data_snapshot) : r.data_snapshot;
+                        document.getElementById('vr-data').textContent = JSON.stringify(parsed, null, 2);
+                    } catch (e) {
+                        document.getElementById('vr-data').textContent = r.data_snapshot;
+                    }
+
+                    const modalEl = document.getElementById('viewReportModal');
+                    modalEl.classList.add('show');
+                    modalEl.style.display = 'block';
+                    modalEl.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                    modalEl.querySelector('.btn-close').onclick = () => {
+                        modalEl.classList.remove('show');
+                        modalEl.style.display = 'none';
+                    };
+                });
+            });
+
+        } else {
+            document.querySelector('#reports-list tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Failed to load reports.</td></tr>';
+        }
+    } catch (e) {
+        document.querySelector('#reports-list tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Network Error.</td></tr>';
+    }
+}
+
+function notFoundView() {
+    setHeader('404 Not Found');
+    renderView('Route missing', 'The requested analytics dashboard does not exist.');
+}
+
+// Router
+function router() {
+    let hash = window.location.hash;
+
+    if (!hash || hash === '') {
+        hash = '#/login';
+        window.history.replaceState(null, null, document.location.pathname + hash);
+    }
+
+    console.log(`Navigating to: ${hash}`);
+
+    switch (hash) {
+        case '#/login':
+            loginView();
+            break;
+        case '#/overview':
+        case '#/performance':
+            overviewView();
+            break;
+        case '#/demographics':
+            demographicsView();
+            break;
+        case '#/behavior':
+            behaviorView();
+            break;
+        case '#/reports':
+            reportsView();
+            break;
+        default:
+            notFoundView();
+            break;
+    }

@@ -510,3 +510,150 @@ function router() {
             notFoundView();
             break;
     }
+}
+
+window.addEventListener('hashchange', router);
+window.addEventListener('DOMContentLoaded', router);
+
+document.getElementById('app-content').addEventListener('submit', async (e) => {
+    if (e.target.id === 'login-form') {
+        e.preventDefault();
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                window.location.href = '#/overview';
+            } else {
+                errorDiv.textContent = data.error || 'Login failed';
+                errorDiv.hidden = false;
+            }
+        } catch (err) {
+            errorDiv.textContent = 'Network error. Please try again.';
+            errorDiv.hidden = false;
+        }
+    }
+});
+
+document.getElementById('logout-btn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include'
+    });
+
+    window.location.hash = '#/login';
+
+    document.getElementById('login-status').textContent = 'Signed Out';
+});
+
+// Save Report Logic
+function getSaveReportButton(category, dataName) {
+    if (window.userRole === 'viewer') return ''; // Viewers cannot save reports
+    return `<button class="btn btn-sm btn-primary save-report-btn" data-category="${category}" data-var="${dataName}"><i class="bi bi-cloud-arrow-up me-1"></i> Save Snapshot</button>`;
+}
+
+function attachSaveVariables(dataObj) {
+    window.currentReportData = dataObj;
+}
+
+document.addEventListener('click', async (e) => {
+    if (e.target.closest('.save-report-btn')) {
+        const btn = e.target.closest('.save-report-btn');
+        const category = btn.getAttribute('data-category');
+
+        // Inject Modal if not exists
+        if (!document.getElementById('saveReportModal')) {
+            const modalHtml = `
+            <div class="modal fade" id="saveReportModal" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Save Report Snapshot</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <form id="save-report-form">
+                        <div class="mb-3">
+                            <label class="form-label">Report Title</label>
+                            <input type="text" id="report-title" class="form-control" required placeholder="e.g. Weekly Performance">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Analyst Comments</label>
+                            <textarea id="report-comments" class="form-control" rows="4" placeholder="Add your analysis and insights here..."></textarea>
+                        </div>
+                    </form>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirm-save-btn">Save Report</button>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        const modalEl = document.getElementById('saveReportModal');
+        modalEl.classList.add('show');
+        modalEl.style.display = 'block';
+        modalEl.style.backgroundColor = 'rgba(0,0,0,0.5)';
+
+        const closeFn = () => {
+            modalEl.classList.remove('show');
+            modalEl.style.display = 'none';
+        };
+        modalEl.querySelector('.btn-close').onclick = closeFn;
+        modalEl.querySelector('.btn-secondary').onclick = closeFn;
+
+        const confirmBtn = document.getElementById('confirm-save-btn');
+        const newBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+
+        newBtn.addEventListener('click', async () => {
+            const title = document.getElementById('report-title').value;
+            const comments = document.getElementById('report-comments').value;
+            if (!title) return alert('Title is required');
+
+            newBtn.disabled = true;
+            newBtn.textContent = 'Saving...';
+
+            try {
+                const res = await fetch('/api/reports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        title: title,
+                        category: category,
+                        comments: comments,
+                        data_snapshot: window.currentReportData
+                    })
+                });
+
+                if (res.ok) {
+                    closeFn();
+                    window.location.hash = '#/reports';
+                } else {
+                    alert('Failed to save report');
+                    newBtn.disabled = false;
+                    newBtn.textContent = 'Save Report';
+                }
+            } catch (err) {
+                alert('Network error while saving');
+                newBtn.disabled = false;
+                newBtn.textContent = 'Save Report';
+            }
+        });
+    }
+});

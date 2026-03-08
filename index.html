@@ -120,9 +120,17 @@
       <div class="col py-0 px-0 d-flex flex-column h-sm-100 w-100 w-md-auto overflow-hidden">
         <!-- Top Nav (Mobile mostly) -->
         <nav
-          class="navbar navbar-light bg-light top-navbar px-4 py-3 d-flex justify-content-between align-items-center">
+          class="navbar navbar-light bg-light top-navbar px-4 py-3 d-flex justify-content-between align-items-center border-bottom shadow-sm">
           <h4 class="m-0 text-dark fw-bold" id="page-title">Dashboard</h4>
-          <div id="top-actions"></div>
+          <div class="d-flex align-items-center gap-3">
+            <select id="global-date-filter" class="form-select form-select-sm" style="width: auto;">
+              <option value="1">Last 24 Hours</option>
+              <option value="7">Last 7 Days</option>
+              <option value="30" selected>Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+            </select>
+            <div id="top-actions"></div>
+          </div>
         </nav>
 
         <main class="flex-grow-1 overflow-auto" id="app-content">
@@ -138,6 +146,7 @@
   </script>
   <!-- html2pdf Client-side library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="js/app.js"></script>
 </body>
 

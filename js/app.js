@@ -2,6 +2,8 @@ const contentArea = document.getElementById('app-content');
 const pageTitle = document.getElementById('page-title');
 const topActions = document.getElementById('top-actions');
 
+window.chartInstances = {};
+
 function updateNavActive(hash) {
     document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
     const activeLink = document.querySelector(`.nav-link[data-route="${hash}"]`);
@@ -152,7 +154,92 @@ function renderTable(container, keys, rows) {
 }
 
 async function overviewView() {
-    updateNavActive(window.location.hash || '#/overview');
+    updateNavActive('#/overview');
+    const data = await checkAuth();
+    if (data) {
+        setRendercontent('Overview', `
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <h6 class="text-muted text-uppercase fw-bold mb-2">Visitors</h6>
+                            <h2 class="mb-0 fw-bold" id="ov-visitors">-</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <h6 class="text-muted text-uppercase fw-bold mb-2">Views</h6>
+                            <h2 class="mb-0 fw-bold" id="ov-views">-</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <h6 class="text-muted text-uppercase fw-bold mb-2">Bounce Rate</h6>
+                            <h2 class="mb-0 fw-bold" id="ov-bounce">-</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <h6 class="text-muted text-uppercase fw-bold mb-2">Visit Duration</h6>
+                            <h2 class="mb-0 fw-bold" id="ov-duration">-</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body pt-4">
+                    <canvas id="overview-chart" class="w-100" style="height: 300px; background: #fff;"></canvas>
+                </div>
+            </div>
+        `, getSaveReportButton('overview', 'currentReportData'));
+
+        try {
+            const days = document.getElementById('global-date-filter').value;
+            const res = await fetch(`/api/data?category=overview&days=${days}`, { credentials: 'include', cache: 'no-store' });
+            if (res.ok) {
+                const apiData = await res.json();
+                attachSaveVariables(apiData);
+                document.getElementById('ov-visitors').textContent = Number(apiData.visitors).toLocaleString();
+                document.getElementById('ov-views').textContent = Number(apiData.views).toLocaleString();
+                document.getElementById('ov-bounce').textContent = apiData.bounceRate + '%';
+                document.getElementById('ov-duration').textContent = apiData.visitDuration + 's';
+
+                renderChart(document.getElementById('overview-chart'), 'line', {
+                    labels: apiData.chartData.map(d => d.day),
+                    datasets: [
+                        {
+                            label: 'Views',
+                            data: apiData.chartData.map(d => Number(d.views)),
+                            borderColor: '#1cc88a',
+                            backgroundColor: 'rgba(28, 200, 138, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Visitors',
+                            data: apiData.chartData.map(d => Number(d.visitors)),
+                            borderColor: '#4e73df',
+                            backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                }, { responsive: true, maintainAspectRatio: false });
+            }
+        } catch (e) {
+            console.error('Failed to load overview data', e);
+        }
+    }
+}
+
+async function performanceView() {
+    updateNavActive('#/performance');
     const data = await checkAuth();
     if (data) {
         setRendercontent('Performance Overview', `
@@ -191,7 +278,8 @@ async function overviewView() {
         `, getSaveReportButton('performance', 'currentReportData'));
 
         try {
-            const res = await fetch('/api/data?category=performance', { credentials: 'include', cache: 'no-store' });
+            const days = document.getElementById('global-date-filter').value;
+            const res = await fetch(`/api/data?category=performance&days=${days}`, { credentials: 'include', cache: 'no-store' });
             if (res.ok) {
                 const pageData = await res.json();
                 attachSaveVariables(pageData);
@@ -204,7 +292,17 @@ async function overviewView() {
                     [{ label: 'Error Type', key: 'error_type' }, { label: 'Count', key: 'count' }],
                     pageData.topErrors);
 
-                renderLineChart(document.getElementById('pageviews-chart'), pageData.byDay, 'day', 'views');
+                renderChart(document.getElementById('pageviews-chart'), 'line', {
+                    labels: pageData.byDay.map(d => d.day),
+                    datasets: [{
+                        label: 'Pageviews',
+                        data: pageData.byDay.map(d => Number(d.views)),
+                        borderColor: '#2E86C1',
+                        backgroundColor: 'rgba(46, 134, 193, 0.2)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                }, { responsive: true, maintainAspectRatio: false });
             } else {
                 document.getElementById('top-pages-table').innerHTML = '<div class="alert alert-danger">Failed to load data (Server Error).</div>';
             }
@@ -214,63 +312,17 @@ async function overviewView() {
     }
 }
 
-function renderLineChart(canvas, dataPoints, labelKey, valueKey) {
-    if (!canvas || !dataPoints || dataPoints.length === 0) return;
+function renderChart(canvas, type, data, options) {
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = canvas.width = canvas.offsetWidth;
-    const H = canvas.height = 250;
-    const pad = { top: 20, right: 20, bottom: 40, left: 60 };
-    const plotW = W - pad.left - pad.right;
-    const plotH = H - pad.top - pad.bottom;
-
-    ctx.clearRect(0, 0, W, H);
-
-    const values = dataPoints.map(d => Number(d[valueKey]));
-    const maxVal = Math.max(...values, 1);
-
-    // Axes
-    ctx.strokeStyle = '#ddd';
-    ctx.beginPath();
-    ctx.moveTo(pad.left, pad.top);
-    ctx.lineTo(pad.left, H - pad.bottom);
-    ctx.lineTo(W - pad.right, H - pad.bottom);
-    ctx.stroke();
-
-    // Line
-    ctx.strokeStyle = '#2E86C1';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    dataPoints.forEach((d, i) => {
-        const x = pad.left + (i / (dataPoints.length - 1 || 1)) * plotW;
-        const y = H - pad.bottom - (values[i] / maxVal) * plotH;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    if (window.chartInstances[canvas.id]) {
+        window.chartInstances[canvas.id].destroy();
+    }
+    window.chartInstances[canvas.id] = new Chart(ctx, {
+        type: type,
+        data: data,
+        options: options
     });
-    ctx.stroke();
-
-    // Points
-    ctx.fillStyle = '#2E86C1';
-    dataPoints.forEach((d, i) => {
-        const x = pad.left + (i / (dataPoints.length - 1 || 1)) * plotW;
-        const y = H - pad.bottom - (values[i] / maxVal) * plotH;
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fill();
-    });
-
-    // X labels (show first, middle, last)
-    ctx.fillStyle = '#666';
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    [0, Math.floor(dataPoints.length / 2), dataPoints.length - 1].forEach(i => {
-        if (!dataPoints[i]) return;
-        const x = pad.left + (i / (dataPoints.length - 1 || 1)) * plotW;
-        ctx.fillText(dataPoints[i][labelKey], x, H - pad.bottom + 20);
-    });
-
-    // Y labels
-    ctx.textAlign = 'right';
-    ctx.fillText(maxVal.toLocaleString(), pad.left - 8, pad.top + 10);
-    ctx.fillText('0', pad.left - 8, H - pad.bottom + 5);
 }
 async function demographicsView() {
     updateNavActive('#/demographics');
@@ -282,16 +334,16 @@ async function demographicsView() {
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Browser Market Share</h5></div>
-                    <div class="card-body" id="browser-table">
-                        <div class="spinner-border text-primary" role="status"></div>
+                    <div class="card-body">
+                        <canvas id="browser-chart" class="w-100" style="height: 250px;"></canvas>
                     </div>
                 </div>
             </div>
             <div class="col-md-6">
                  <div class="card border-0 shadow-sm h-100">
                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Network Types</h5></div>
-                    <div class="card-body" id="network-table">
-                        <div class="spinner-border text-primary" role="status"></div>
+                    <div class="card-body">
+                        <canvas id="network-chart" class="w-100" style="height: 250px;"></canvas>
                     </div>
                 </div>
             </div>
@@ -299,14 +351,27 @@ async function demographicsView() {
     `, getSaveReportButton('demographics', 'currentReportData'));
 
     try {
-        const res = await fetch('/api/data?category=demographics', { credentials: 'include', cache: 'no-store' });
+        const days = document.getElementById('global-date-filter').value;
+        const res = await fetch(`/api/data?category=demographics&days=${days}`, { credentials: 'include', cache: 'no-store' });
         if (res.ok) {
             const apiData = await res.json();
             attachSaveVariables(apiData);
-            renderTable(document.getElementById('browser-table'),
-                [{ label: 'Browser', key: 'browser' }, { label: 'Users', key: 'count' }], apiData.browsers);
-            renderTable(document.getElementById('network-table'),
-                [{ label: 'Network', key: 'network_type' }, { label: 'Users', key: 'count' }], apiData.networks);
+
+            renderChart(document.getElementById('browser-chart'), 'pie', {
+                labels: apiData.browsers.map(b => b.browser),
+                datasets: [{
+                    data: apiData.browsers.map(b => Number(b.count)),
+                    backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b']
+                }]
+            }, { responsive: true, maintainAspectRatio: false });
+
+            renderChart(document.getElementById('network-chart'), 'doughnut', {
+                labels: apiData.networks.map(n => n.network_type),
+                datasets: [{
+                    data: apiData.networks.map(n => Number(n.count)),
+                    backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b']
+                }]
+            }, { responsive: true, maintainAspectRatio: false });
         }
     } catch (e) { }
 }
@@ -329,8 +394,8 @@ async function behaviorView() {
             <div class="col-12">
                  <div class="card border-0 shadow-sm h-100">
                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Most Clicked HTML Tags</h5></div>
-                    <div class="card-body" id="clicks-table">
-                        <div class="spinner-border text-primary" role="status"></div>
+                    <div class="card-body">
+                        <canvas id="clicks-chart" class="w-100" style="height: 250px;"></canvas>
                     </div>
                 </div>
             </div>
@@ -338,13 +403,32 @@ async function behaviorView() {
     `, getSaveReportButton('behavior', 'currentReportData'));
 
     try {
-        const res = await fetch('/api/data?category=behavior', { credentials: 'include', cache: 'no-store' });
+        const days = document.getElementById('global-date-filter').value;
+        const res = await fetch(`/api/data?category=behavior&days=${days}`, { credentials: 'include', cache: 'no-store' });
         if (res.ok) {
             const apiData = await res.json();
             attachSaveVariables(apiData);
-            renderTable(document.getElementById('clicks-table'),
-                [{ label: 'HTML Node', key: 'element_tag' }, { label: 'Total Clicks', key: 'clicks' }], apiData.topClicks);
-            renderLineChart(document.getElementById('active-time-chart'), apiData.activeTime, 'day', 'avg_seconds');
+
+            renderChart(document.getElementById('clicks-chart'), 'bar', {
+                labels: apiData.topClicks.map(c => c.element_tag),
+                datasets: [{
+                    label: 'Total Clicks',
+                    data: apiData.topClicks.map(c => Number(c.clicks)),
+                    backgroundColor: '#1cc88a'
+                }]
+            }, { responsive: true, maintainAspectRatio: false });
+
+            renderChart(document.getElementById('active-time-chart'), 'line', {
+                labels: apiData.activeTime.map(d => d.day),
+                datasets: [{
+                    label: 'Avg Active Time (s)',
+                    data: apiData.activeTime.map(d => Number(d.avg_seconds)),
+                    borderColor: '#f6c23e',
+                    backgroundColor: 'rgba(246, 194, 62, 0.2)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            }, { responsive: true, maintainAspectRatio: false });
         }
     } catch (e) { }
 }
@@ -494,8 +578,10 @@ function router() {
             loginView();
             break;
         case '#/overview':
-        case '#/performance':
             overviewView();
+            break;
+        case '#/performance':
+            performanceView();
             break;
         case '#/demographics':
             demographicsView();
@@ -514,6 +600,7 @@ function router() {
 
 window.addEventListener('hashchange', router);
 window.addEventListener('DOMContentLoaded', router);
+document.getElementById('global-date-filter').addEventListener('change', router);
 
 document.getElementById('app-content').addEventListener('submit', async (e) => {
     if (e.target.id === 'login-form') {

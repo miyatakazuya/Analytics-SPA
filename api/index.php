@@ -40,16 +40,56 @@ try {
     if ($method === 'GET') {
         if ($resource === 'data') {
             $category = $_GET['category'] ?? '';
+            $days = intval($_GET['days'] ?? 30);
+            $dateFilterSessions = "created_at >= DATE_SUB(NOW(), INTERVAL $days DAY)";
+            $dateFilterPageviews = "created_at >= DATE_SUB(NOW(), INTERVAL $days DAY)";
+            $dateFilterActivities = "timestamp >= DATE_SUB(NOW(), INTERVAL $days DAY)";
+            $dateFilterErrors = "created_at >= DATE_SUB(NOW(), INTERVAL $days DAY)";
 
-            if ($category === 'performance') {
-                // Existing pageviews logic + error counts
-                $stmtTop = $pdo->query("SELECT url, COUNT(*) as views FROM pageviews WHERE url != '' AND url IS NOT NULL GROUP BY url ORDER BY views DESC LIMIT 10");
+            if ($category === 'overview') {
+                $stmtVis = $pdo->query("SELECT COUNT(DISTINCT session_id) as visitors FROM sessions WHERE $dateFilterSessions");
+                $visitors = $stmtVis->fetchColumn();
+
+                $stmtViews = $pdo->query("SELECT COUNT(*) as views FROM pageviews WHERE $dateFilterPageviews");
+                $views = $stmtViews->fetchColumn();
+
+                $stmtBounce = $pdo->query("
+                    SELECT 
+                        (SELECT COUNT(*) FROM (SELECT session_id FROM pageviews WHERE $dateFilterPageviews GROUP BY session_id HAVING COUNT(*) = 1) as single) / 
+                        NULLIF((SELECT COUNT(DISTINCT session_id) FROM pageviews WHERE $dateFilterPageviews), 0) * 100 as bounce_rate
+                ");
+                $bounceRate = round((float)$stmtBounce->fetchColumn(), 1);
+
+                $stmtDur = $pdo->query("SELECT ROUND(AVG(TIMESTAMPDIFF(SECOND, enter_time, leave_time))) FROM pageviews WHERE leave_time IS NOT NULL AND $dateFilterPageviews");
+                $visitDuration = $stmtDur->fetchColumn() ?: 0;
+
+                $stmtChart = $pdo->query("
+                    SELECT 
+                        DATE(created_at) as day, 
+                        COUNT(DISTINCT session_id) as visitors,
+                        COUNT(id) as views 
+                    FROM pageviews 
+                    WHERE $dateFilterPageviews 
+                    GROUP BY day 
+                    ORDER BY day ASC
+                ");
+                $chartData = $stmtChart->fetchAll(PDO::FETCH_ASSOC);
+
+                echo json_encode([
+                    'visitors' => $visitors,
+                    'views' => $views,
+                    'bounceRate' => $bounceRate,
+                    'visitDuration' => $visitDuration,
+                    'chartData' => $chartData
+                ]);
+            } elseif ($category === 'performance') {
+                $stmtTop = $pdo->query("SELECT url, COUNT(*) as views FROM pageviews WHERE url != '' AND url IS NOT NULL AND $dateFilterPageviews GROUP BY url ORDER BY views DESC LIMIT 10");
                 $topPages = $stmtTop->fetchAll(PDO::FETCH_ASSOC);
 
-                $stmtByDay = $pdo->query("SELECT DATE(created_at) as day, COUNT(*) as views FROM pageviews GROUP BY day ORDER BY day ASC");
+                $stmtByDay = $pdo->query("SELECT DATE(created_at) as day, COUNT(*) as views FROM pageviews WHERE $dateFilterPageviews GROUP BY day ORDER BY day ASC");
                 $byDay = $stmtByDay->fetchAll(PDO::FETCH_ASSOC);
 
-                $stmtErrors = $pdo->query("SELECT error_type, COUNT(*) as count FROM errors GROUP BY error_type ORDER BY count DESC LIMIT 5");
+                $stmtErrors = $pdo->query("SELECT error_type, COUNT(*) as count FROM errors WHERE $dateFilterErrors GROUP BY error_type ORDER BY count DESC LIMIT 5");
                 $topErrors = $stmtErrors->fetchAll(PDO::FETCH_ASSOC);
 
                 echo json_encode([
@@ -69,11 +109,12 @@ try {
                         END as browser,
                         COUNT(*) as count
                     FROM sessions 
+                    WHERE $dateFilterSessions
                     GROUP BY browser
                 ");
                 $browsers = $stmtBrowser->fetchAll(PDO::FETCH_ASSOC);
 
-                $stmtNetwork = $pdo->query("SELECT network_type, COUNT(*) as count FROM sessions WHERE network_type IS NOT NULL GROUP BY network_type");
+                $stmtNetwork = $pdo->query("SELECT network_type, COUNT(*) as count FROM sessions WHERE network_type IS NOT NULL AND $dateFilterSessions GROUP BY network_type");
                 $networks = $stmtNetwork->fetchAll(PDO::FETCH_ASSOC);
 
                 echo json_encode([
@@ -81,10 +122,10 @@ try {
                     'networks' => $networks
                 ]);
             } elseif ($category === 'behavior') {
-                $stmtClicks = $pdo->query("SELECT element_tag, COUNT(*) as clicks FROM activities WHERE activity_type = 'click' GROUP BY element_tag ORDER BY clicks DESC LIMIT 10");
+                $stmtClicks = $pdo->query("SELECT element_tag, COUNT(*) as clicks FROM activities WHERE activity_type = 'click' AND $dateFilterActivities GROUP BY element_tag ORDER BY clicks DESC LIMIT 10");
                 $topClicks = $stmtClicks->fetchAll(PDO::FETCH_ASSOC);
 
-                $stmtActiveTime = $pdo->query("SELECT DATE(enter_time) as day, ROUND(AVG(TIMESTAMPDIFF(SECOND, enter_time, leave_time))) as avg_seconds FROM pageviews WHERE leave_time IS NOT NULL GROUP BY day ORDER BY day ASC");
+                $stmtActiveTime = $pdo->query("SELECT DATE(enter_time) as day, ROUND(AVG(TIMESTAMPDIFF(SECOND, enter_time, leave_time))) as avg_seconds FROM pageviews WHERE leave_time IS NOT NULL AND $dateFilterPageviews GROUP BY day ORDER BY day ASC");
                 $activeTime = $stmtActiveTime->fetchAll(PDO::FETCH_ASSOC);
 
                 echo json_encode([

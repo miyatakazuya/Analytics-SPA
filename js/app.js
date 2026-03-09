@@ -565,7 +565,12 @@ async function reportsView() {
                         };
                     }
 
-                    // Render Snapshot
+                    const modalEl = document.getElementById('viewReportModal');
+                    modalEl.classList.add('show');
+                    modalEl.style.display = 'block';
+                    modalEl.style.backgroundColor = 'rgba(0,0,0,0.5)';
+
+                    // Render Snapshot AFTER modal is visible
                     const container = document.getElementById('vr-snapshot-container');
                     container.innerHTML = '';
                     try {
@@ -575,10 +580,6 @@ async function reportsView() {
                         container.textContent = 'Invalid Snapshot Data';
                     }
 
-                    const modalEl = document.getElementById('viewReportModal');
-                    modalEl.classList.add('show');
-                    modalEl.style.display = 'block';
-                    modalEl.style.backgroundColor = 'rgba(0,0,0,0.5)';
                     modalEl.querySelector('.btn-close').onclick = () => {
                         modalEl.classList.remove('show');
                         modalEl.style.display = 'none';
@@ -633,8 +634,12 @@ function renderSnapshotData(container, category, data) {
 
     } else if (category === 'behavior') {
         container.innerHTML = `
-            <canvas id="snap-active" class="w-100 mb-4" style="height:250px;"></canvas>
-            <canvas id="snap-clicks" class="w-100" style="height:250px;"></canvas>
+            <div style="position: relative; height: 250px;" class="w-100 mb-4">
+                <canvas id="snap-active"></canvas>
+            </div>
+            <div style="position: relative; height: 250px;" class="w-100">
+                <canvas id="snap-clicks"></canvas>
+            </div>
         `;
         renderChart(document.getElementById('snap-active'), 'line', {
             labels: data.activeTime.map(d => d.day),

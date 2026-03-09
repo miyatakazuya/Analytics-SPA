@@ -30,10 +30,12 @@ try {
 
         // RBAC Logic
         $role = $_SESSION['user']['role'];
-        if ($role === 'viewer' && !in_array($resource, ['reports', 'dashboard'])) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Forbidden. Viewers cannot access raw data.']);
-            exit;
+        if ($role === 'viewer') {
+            if ($method === 'PUT' || $method === 'DELETE' || !in_array($resource, ['reports', 'dashboard'])) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Forbidden. Viewers cannot modify reports or access raw data.']);
+                exit;
+            }
         }
     }
 
@@ -180,6 +182,34 @@ try {
             session_start();
             session_destroy();
             setcookie(session_name(), '', time() - 3600, '/');
+            echo json_encode(['success' => true]);
+            exit;
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'Resource not found']);
+        }
+    } elseif ($method === 'PUT') {
+        if ($resource === 'reports' && $id) {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $title = $input['title'] ?? null;
+            $comments = $input['comments'] ?? null;
+            if ($title) {
+                $stmt = $pdo->prepare("UPDATE reports SET title = ?, comments = ? WHERE id = ?");
+                $stmt->execute([$title, $comments, $id]);
+                echo json_encode(['success' => true]);
+            } else {
+                http_response_code(400);
+                echo json_encode(['error' => 'Title is required']);
+            }
+            exit;
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'Resource not found']);
+        }
+    } elseif ($method === 'DELETE') {
+        if ($resource === 'reports' && $id) {
+            $stmt = $pdo->prepare("DELETE FROM reports WHERE id = ?");
+            $stmt->execute([$id]);
             echo json_encode(['success' => true]);
             exit;
         } else {

@@ -462,10 +462,10 @@ async function reportsView() {
 
         <!-- View Report Modal -->
         <div class="modal fade" id="viewReportModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content border-0 shadow-lg">
                     <div class="modal-header border-bottom-0 pb-0">
-                        <h5 class="modal-title fw-bold" id="vr-title">...</h5>
+                        <input type="text" id="vr-title" class="form-control form-control-lg border-0 bg-transparent fw-bold fs-4 px-0" ${window.userRole === 'viewer' ? 'disabled' : ''}>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body pt-2">
@@ -478,15 +478,19 @@ async function reportsView() {
                         <div class="card border border-primary-subtle bg-primary-subtle shadow-sm mb-4">
                             <div class="card-body">
                                 <h6 class="card-subtitle mb-2 text-primary fw-bold"><i class="bi bi-chat-left-text me-2"></i>Analyst Comments</h6>
-                                <p class="card-text text-dark" id="vr-comments" style="white-space: pre-wrap;">...</p>
+                                <textarea id="vr-comments" class="form-control border-0 bg-transparent text-dark px-0" rows="3" ${window.userRole === 'viewer' ? 'disabled' : ''}></textarea>
                             </div>
                         </div>
 
                         <h6 class="fw-bold mb-3"><i class="bi bi-database me-2"></i>Data Snapshot</h6>
-                        <div class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;">
-                            <pre id="vr-data" class="mb-0" style="font-size: 0.85rem;"></pre>
+                        <div class="bg-light p-3 rounded" id="vr-snapshot-container" style="min-height: 300px;">
                         </div>
                     </div>
+                    ${window.userRole !== 'viewer' ? `
+                    <div class="modal-footer border-top-0 d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-danger" id="vr-delete-btn"><i class="bi bi-trash"></i> Delete Report</button>
+                        <button type="button" class="btn btn-primary" id="vr-save-btn"><i class="bi bi-check-circle"></i> Save Changes</button>
+                    </div>` : ''}
                 </div>
             </div>
         </div>
@@ -525,17 +529,50 @@ async function reportsView() {
             document.querySelectorAll('.view-report-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const r = window.loadedReports[e.target.getAttribute('data-idx')];
-                    document.getElementById('vr-title').textContent = r.title;
+                    document.getElementById('vr-title').value = r.title;
                     document.getElementById('vr-author').textContent = r.author_email;
                     document.getElementById('vr-date').textContent = new Date(r.created_at).toLocaleString();
                     document.getElementById('vr-category').textContent = r.category;
-                    document.getElementById('vr-comments').textContent = r.comments || '(No comments provided)';
+                    document.getElementById('vr-comments').value = r.comments || '';
 
+                    // CRUD Handlers
+                    const saveBtn = document.getElementById('vr-save-btn');
+                    if (saveBtn) {
+                        saveBtn.onclick = async () => {
+                            saveBtn.disabled = true;
+                            saveBtn.textContent = 'Saving...';
+                            const updatedTitle = document.getElementById('vr-title').value;
+                            const updatedComments = document.getElementById('vr-comments').value;
+                            await fetch('/api/reports/' + r.id, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ title: updatedTitle, comments: updatedComments })
+                            });
+                            document.getElementById('viewReportModal').querySelector('.btn-close').click();
+                            reportsView();
+                        };
+                    }
+                    const delBtn = document.getElementById('vr-delete-btn');
+                    if (delBtn) {
+                        delBtn.onclick = async () => {
+                            if (confirm("Are you sure you want to delete this report?")) {
+                                delBtn.disabled = true;
+                                await fetch('/api/reports/' + r.id, { method: 'DELETE', credentials: 'include' });
+                                document.getElementById('viewReportModal').querySelector('.btn-close').click();
+                                reportsView();
+                            }
+                        };
+                    }
+
+                    // Render Snapshot
+                    const container = document.getElementById('vr-snapshot-container');
+                    container.innerHTML = '';
                     try {
                         const parsed = typeof r.data_snapshot === 'string' ? JSON.parse(r.data_snapshot) : r.data_snapshot;
-                        document.getElementById('vr-data').textContent = JSON.stringify(parsed, null, 2);
-                    } catch (e) {
-                        document.getElementById('vr-data').textContent = r.data_snapshot;
+                        renderSnapshotData(container, r.category, parsed);
+                    } catch (err) {
+                        container.textContent = 'Invalid Snapshot Data';
                     }
 
                     const modalEl = document.getElementById('viewReportModal');
@@ -554,6 +591,79 @@ async function reportsView() {
         }
     } catch (e) {
         document.querySelector('#reports-list tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Network Error.</td></tr>';
+    }
+}
+
+function renderSnapshotData(container, category, data) {
+    if (!data) { container.textContent = "No data."; return; }
+    if (category === 'performance') {
+        container.innerHTML = `
+            <canvas id="snap-pageviews" class="w-100 mb-4" style="height:250px;"></canvas>
+            <div class="row">
+                <div class="col-md-7" id="snap-pages"></div>
+                <div class="col-md-5" id="snap-errors"></div>
+            </div>
+        `;
+        renderChart(document.getElementById('snap-pageviews'), 'line', {
+            labels: data.byDay.map(d => d.day),
+            datasets: [{
+                label: 'Pageviews',
+                data: data.byDay.map(d => Number(d.views)),
+                borderColor: '#2E86C1', backgroundColor: 'rgba(46, 134, 193, 0.2)', fill: true, tension: 0.4
+            }]
+        }, { responsive: true, maintainAspectRatio: false });
+        renderTable(document.getElementById('snap-pages'), [{ label: 'URL', key: 'url' }, { label: 'Views', key: 'views' }], data.topPages);
+        renderTable(document.getElementById('snap-errors'), [{ label: 'Error Type', key: 'error_type' }, { label: 'Count', key: 'count' }], data.topErrors);
+
+    } else if (category === 'demographics') {
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-md-6"><canvas id="snap-browser" style="height:250px;"></canvas></div>
+                <div class="col-md-6"><canvas id="snap-network" style="height:250px;"></canvas></div>
+            </div>
+        `;
+        renderChart(document.getElementById('snap-browser'), 'pie', {
+            labels: data.browsers.map(b => b.browser),
+            datasets: [{ data: data.browsers.map(b => Number(b.count)), backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'] }]
+        }, { responsive: true, maintainAspectRatio: false });
+        renderChart(document.getElementById('snap-network'), 'doughnut', {
+            labels: data.networks.map(n => n.network_type),
+            datasets: [{ data: data.networks.map(n => Number(n.count)), backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'] }]
+        }, { responsive: true, maintainAspectRatio: false });
+
+    } else if (category === 'behavior') {
+        container.innerHTML = `
+            <canvas id="snap-active" class="w-100 mb-4" style="height:250px;"></canvas>
+            <canvas id="snap-clicks" class="w-100" style="height:250px;"></canvas>
+        `;
+        renderChart(document.getElementById('snap-active'), 'line', {
+            labels: data.activeTime.map(d => d.day),
+            datasets: [{ label: 'Avg Active Time (s)', data: data.activeTime.map(d => Number(d.avg_seconds)), borderColor: '#f6c23e', backgroundColor: 'rgba(246,194,62,0.2)', fill: true, tension: 0.4 }]
+        }, { responsive: true, maintainAspectRatio: false });
+        renderChart(document.getElementById('snap-clicks'), 'bar', {
+            labels: data.topClicks.map(c => c.element_tag),
+            datasets: [{ label: 'Total Clicks', data: data.topClicks.map(c => Number(c.clicks)), backgroundColor: '#1cc88a' }]
+        }, { responsive: true, maintainAspectRatio: false });
+
+    } else if (category === 'overview') {
+        container.innerHTML = `
+            <div class="row g-2 mb-3">
+                <div class="col-3"><div class="card card-body"><h6>Visitors</h6><h4>${data.visitors}</h4></div></div>
+                <div class="col-3"><div class="card card-body"><h6>Views</h6><h4>${data.views}</h4></div></div>
+                <div class="col-3"><div class="card card-body"><h6>Bounce Rate</h6><h4>${data.bounceRate}%</h4></div></div>
+                <div class="col-3"><div class="card card-body"><h6>Avg Duration</h6><h4>${data.visitDuration}s</h4></div></div>
+            </div>
+            <canvas id="snap-ov-chart" class="w-100" style="height:250px;"></canvas>
+        `;
+        renderChart(document.getElementById('snap-ov-chart'), 'line', {
+            labels: data.chartData.map(d => d.day),
+            datasets: [
+                { label: 'Views', data: data.chartData.map(d => Number(d.views)), borderColor: '#1cc88a', backgroundColor: 'rgba(28,200,138,0.1)', fill: true, tension: 0.4 },
+                { label: 'Visitors', data: data.chartData.map(d => Number(d.visitors)), borderColor: '#4e73df', backgroundColor: 'rgba(78,115,223,0.1)', fill: true, tension: 0.4 }
+            ]
+        }, { responsive: true, maintainAspectRatio: false });
+    } else {
+        container.textContent = "Unsupported category visualization.";
     }
 }
 

@@ -599,7 +599,9 @@ function renderSnapshotData(container, category, data) {
     if (!data) { container.textContent = "No data."; return; }
     if (category === 'performance') {
         container.innerHTML = `
-            <canvas id="snap-pageviews" class="w-100 mb-4" style="height:250px;"></canvas>
+            <div style="position: relative; height: 250px;" class="w-100 mb-4">
+                <canvas id="snap-pageviews"></canvas>
+            </div>
             <div class="row">
                 <div class="col-md-7" id="snap-pages"></div>
                 <div class="col-md-5" id="snap-errors"></div>
@@ -619,8 +621,16 @@ function renderSnapshotData(container, category, data) {
     } else if (category === 'demographics') {
         container.innerHTML = `
             <div class="row">
-                <div class="col-md-6"><canvas id="snap-browser" style="height:250px;"></canvas></div>
-                <div class="col-md-6"><canvas id="snap-network" style="height:250px;"></canvas></div>
+                <div class="col-md-6">
+                    <div style="position: relative; height: 250px;" class="w-100">
+                        <canvas id="snap-browser"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div style="position: relative; height: 250px;" class="w-100">
+                        <canvas id="snap-network"></canvas>
+                    </div>
+                </div>
             </div>
         `;
         renderChart(document.getElementById('snap-browser'), 'pie', {
@@ -658,7 +668,9 @@ function renderSnapshotData(container, category, data) {
                 <div class="col-3"><div class="card card-body"><h6>Bounce Rate</h6><h4>${data.bounceRate}%</h4></div></div>
                 <div class="col-3"><div class="card card-body"><h6>Avg Duration</h6><h4>${data.visitDuration}s</h4></div></div>
             </div>
-            <canvas id="snap-ov-chart" class="w-100" style="height:250px;"></canvas>
+            <div style="position: relative; height: 250px;" class="w-100">
+                <canvas id="snap-ov-chart"></canvas>
+            </div>
         `;
         renderChart(document.getElementById('snap-ov-chart'), 'line', {
             labels: data.chartData.map(d => d.day),

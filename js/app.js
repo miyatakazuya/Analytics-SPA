@@ -107,6 +107,7 @@ async function checkAuth() {
 
         // Store role globally to easily toggle "Save Report" button visibility
         window.userRole = data.user.role;
+        applyRoleRestrictions();
 
         return data;
     } catch (err) {
@@ -115,6 +116,24 @@ async function checkAuth() {
         document.getElementById('logout-btn').classList.add('d-none');
         return null;
     }
+}
+
+function applyRoleRestrictions() {
+    const restrictedRoutes = ['#/overview', '#/demographics', '#/behavior', '#/performance'];
+    restrictedRoutes.forEach(route => {
+        const link = document.querySelector(`.nav-link[data-route="${route}"]`);
+        if (link) {
+            if (window.userRole === 'viewer') {
+                link.style.pointerEvents = 'none';
+                link.style.opacity = '0.4';
+                link.classList.add('disabled');
+            } else {
+                link.style.pointerEvents = 'auto';
+                link.style.opacity = '1';
+                link.classList.remove('disabled');
+            }
+        }
+    });
 }
 
 function renderTable(container, keys, rows) {
@@ -718,15 +737,19 @@ function router() {
             loginView();
             break;
         case '#/overview':
+            if (window.userRole === 'viewer') return errorPageView(403, 'Access Denied', 'Viewer accounts cannot access live data dashboards.');
             overviewView();
             break;
         case '#/performance':
+            if (window.userRole === 'viewer') return errorPageView(403, 'Access Denied', 'Viewer accounts cannot access live data dashboards.');
             performanceView();
             break;
         case '#/demographics':
+            if (window.userRole === 'viewer') return errorPageView(403, 'Access Denied', 'Viewer accounts cannot access live data dashboards.');
             demographicsView();
             break;
         case '#/behavior':
+            if (window.userRole === 'viewer') return errorPageView(403, 'Access Denied', 'Viewer accounts cannot access live data dashboards.');
             behaviorView();
             break;
         case '#/reports':
@@ -760,7 +783,11 @@ document.getElementById('app-content').addEventListener('submit', async (e) => {
             const data = await res.json();
 
             if (res.ok && data.success) {
-                window.location.href = '#/overview';
+                if (data.data && data.data.role === 'viewer') {
+                    window.location.href = '#/reports';
+                } else {
+                    window.location.href = '#/overview';
+                }
             } else {
                 errorDiv.textContent = data.error || 'Login failed';
                 errorDiv.hidden = false;

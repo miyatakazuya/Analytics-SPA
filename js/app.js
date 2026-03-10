@@ -684,9 +684,22 @@ function renderSnapshotData(container, category, data) {
     }
 }
 
-function notFoundView() {
-    setHeader('404 Not Found');
-    renderView('Route missing', 'The requested analytics dashboard does not exist.');
+function errorPageView(code = 404, title = 'Page Not Found', message = 'The requested dashboard or resource does not exist.') {
+    setHeader(`Error ${code}`);
+    const html = `
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center" style="min-height: 50vh;">
+            <div class="mb-4">
+                <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 5rem; opacity: 0.8;"></i>
+            </div>
+            <h1 class="display-3 fw-bold text-dark mb-2">${code}</h1>
+            <h3 class="h4 text-secondary mb-3">${title}</h3>
+            <p class="text-muted mb-4" style="max-width: 500px;">${message}</p>
+            <a href="#/overview" class="btn btn-primary px-4 py-2 rounded-pill shadow-sm">
+                <i class="bi bi-arrow-left me-2"></i>Return to Dashboard
+            </a>
+        </div>
+    `;
+    document.getElementById('app-content').innerHTML = html;
 }
 
 // Router
@@ -720,7 +733,7 @@ function router() {
             reportsView();
             break;
         default:
-            notFoundView();
+            errorPageView();
             break;
     }
 }

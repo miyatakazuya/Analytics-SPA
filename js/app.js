@@ -337,6 +337,18 @@ function renderChart(canvas, type, data, options) {
     if (window.chartInstances[canvas.id]) {
         window.chartInstances[canvas.id].destroy();
     }
+
+    // Explicitly force legend mounting for robust visibility
+    options = options || {};
+    options.plugins = options.plugins || {};
+    if (type === 'pie' || type === 'doughnut') {
+        options.plugins.legend = { display: true, position: 'bottom' };
+    } else {
+        if (!options.plugins.legend) {
+            options.plugins.legend = { display: true, position: 'top' };
+        }
+    }
+
     window.chartInstances[canvas.id] = new Chart(ctx, {
         type: type,
         data: data,
@@ -826,9 +838,25 @@ function getSaveReportButton(category, dataName) {
     return html;
 }
 
-function exportToPDF(elementId, filename) {
+function exportToPDF(elementId, filename, metadata = null) {
     const element = document.getElementById(elementId);
     if (!element) return;
+
+    let header = null;
+    if (metadata) {
+        header = document.createElement('div');
+        header.className = 'pdf-export-header mb-4 p-4 bg-white border rounded shadow-sm';
+        header.innerHTML = `
+           <h2 class="mb-3 fw-bold text-dark">${metadata.title}</h2>
+           <div class="d-flex gap-4 mb-3 text-secondary" style="font-size: 0.95rem;">
+               ${metadata.date ? `<div><strong>Date:</strong> ${metadata.date}</div>` : ''}
+               ${metadata.author ? `<div><strong>User:</strong> ${metadata.author}</div>` : ''}
+               ${metadata.category ? `<div><strong>Tag/Category:</strong> <span class="badge bg-secondary">${metadata.category}</span></div>` : ''}
+           </div>
+           ${metadata.comments ? `<div class="bg-light p-3 border-start border-4 border-primary text-dark"><strong>Comments:</strong><br/>${metadata.comments}</div>` : ''}
+        `;
+        element.insertBefore(header, element.firstChild);
+    }
 
     // Configure PDF layout & Canvas scaling to prevent pixelation
     const opt = {
@@ -839,7 +867,9 @@ function exportToPDF(elementId, filename) {
         jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
     };
 
-    html2pdf().set(opt).from(element).save();
+    html2pdf().set(opt).from(element).save().then(() => {
+        if (header) header.remove();
+    });
 }
 
 function attachSaveVariables(dataObj) {
@@ -945,19 +975,36 @@ document.addEventListener('click', async (e) => {
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generating...';
 
-        // Set filename based on the active route
-        let title = 'analytics-export.pdf';
-        const hash = window.location.hash.replace('#/', '');
-        if (hash) {
-            title = `${hash}-report-${new Date().toISOString().split('T')[0]}.pdf`;
-        } else if (document.getElementById('vr-title')) {
-            // we are in the historic report viewer modal
-            title = document.getElementById('vr-title').value.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+        let titleName = 'analytics-export.pdf';
+        let metadata = null;
+
+        if (targetId === 'vr-snapshot-container') {
+            titleName = document.getElementById('vr-title').value.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+            metadata = {
+                title: document.getElementById('vr-title').value,
+                date: document.getElementById('vr-date').textContent,
+                author: document.getElementById('vr-author').textContent,
+                category: document.getElementById('vr-category').textContent,
+                comments: document.getElementById('vr-comments').value
+            };
+        } else {
+            const hash = window.location.hash.replace('#/', '');
+            if (hash) {
+                titleName = `${hash}-report-${new Date().toISOString().split('T')[0]}.pdf`;
+                const dateSelect = document.getElementById('global-date-filter');
+                const dateRange = dateSelect ? dateSelect.options[dateSelect.selectedIndex].text : '';
+                metadata = {
+                    title: 'Live Dashboard: ' + hash.charAt(0).toUpperCase() + hash.slice(1),
+                    date: new Date().toLocaleString() + ' (' + dateRange + ')',
+                    author: window.userRole ? window.userRole : 'Live User',
+                    category: hash
+                };
+            }
         }
 
         // Timeout to allow UI to render spinner before main thread blocks for canvas processing
         setTimeout(() => {
-            exportToPDF(targetId, title);
+            exportToPDF(targetId, titleName, metadata);
             setTimeout(() => {
                 btn.disabled = false;
                 btn.innerHTML = originalText;

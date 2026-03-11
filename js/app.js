@@ -125,7 +125,7 @@ function applyRoleRestrictions() {
         if (link) {
             if (window.userRole === 'viewer') {
                 link.style.pointerEvents = 'none';
-                link.style.opacity = '0.4';
+                link.style.opacity = '0.7';
                 link.classList.add('disabled');
             } else {
                 link.style.pointerEvents = 'auto';

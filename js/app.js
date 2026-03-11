@@ -508,8 +508,14 @@ async function reportsView() {
                     ${window.userRole !== 'viewer' ? `
                     <div class="modal-footer border-top-0 d-flex justify-content-between">
                         <button type="button" class="btn btn-outline-danger" id="vr-delete-btn"><i class="bi bi-trash"></i> Delete Report</button>
-                        <button type="button" class="btn btn-primary" id="vr-save-btn"><i class="bi bi-check-circle"></i> Save Changes</button>
-                    </div>` : ''}
+                        <div>
+                            <button type="button" class="btn btn-outline-secondary export-pdf-btn me-2" data-target="vr-snapshot-container"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
+                            <button type="button" class="btn btn-primary" id="vr-save-btn"><i class="bi bi-check-circle"></i> Save Changes</button>
+                        </div>
+                    </div>` : `
+                    <div class="modal-footer border-top-0 d-flex justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary export-pdf-btn" data-target="vr-snapshot-container"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
+                    </div>`}
                 </div>
             </div>
         </div>
@@ -811,10 +817,29 @@ document.getElementById('logout-btn').addEventListener('click', async (e) => {
     document.getElementById('login-status').textContent = 'Signed Out';
 });
 
-// Save Report Logic
+// Save Report & PDF Logic
 function getSaveReportButton(category, dataName) {
-    if (window.userRole === 'viewer') return ''; // Viewers cannot save reports
-    return `<button class="btn btn-sm btn-primary save-report-btn" data-category="${category}" data-var="${dataName}"><i class="bi bi-cloud-arrow-up me-1"></i> Save Snapshot</button>`;
+    let html = `<button class="btn btn-sm btn-outline-secondary export-pdf-btn ms-2" data-target="app-content"><i class="bi bi-file-earmark-pdf me-1"></i> Export PDF</button>`;
+    if (window.userRole !== 'viewer') {
+        html = `<button class="btn btn-sm btn-primary save-report-btn" data-category="${category}" data-var="${dataName}"><i class="bi bi-cloud-arrow-up me-1"></i> Save Snapshot</button>` + html;
+    }
+    return html;
+}
+
+function exportToPDF(elementId, filename) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    // Configure PDF layout & Canvas scaling to prevent pixelation
+    const opt = {
+        margin: 0.5,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+    };
+
+    html2pdf().set(opt).from(element).save();
 }
 
 function attachSaveVariables(dataObj) {
@@ -909,5 +934,34 @@ document.addEventListener('click', async (e) => {
                 newBtn.textContent = 'Save Report';
             }
         });
+    }
+
+    // PDF Export Listener
+    if (e.target.closest('.export-pdf-btn')) {
+        const btn = e.target.closest('.export-pdf-btn');
+        const originalText = btn.innerHTML;
+        const targetId = btn.getAttribute('data-target');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generating...';
+
+        // Set filename based on the active route
+        let title = 'analytics-export.pdf';
+        const hash = window.location.hash.replace('#/', '');
+        if (hash) {
+            title = `${hash}-report-${new Date().toISOString().split('T')[0]}.pdf`;
+        } else if (document.getElementById('vr-title')) {
+            // we are in the historic report viewer modal
+            title = document.getElementById('vr-title').value.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+        }
+
+        // Timeout to allow UI to render spinner before main thread blocks for canvas processing
+        setTimeout(() => {
+            exportToPDF(targetId, title);
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }, 1000);
+        }, 100);
     }
 });

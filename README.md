@@ -1,31 +1,27 @@
-# CSE 135 Homework 3 - Analytics System
+# CSE 135 Homework 5 - FINAL Project Submission
 Team / Individual: Kazuya Miyata
 
 ## Site Information
 - **Testing Site:** https://test.kazuyamiyata.site
 - **Collector Endpoint:** https://collector.kazuyamiyata.site/api/collect.php
-- **Reporting API:** https://reporting.kazuyamiyata.site/api/sessions
-
-## Server Access
-- **SSH Key Required:** Use standard class SSH key
+- **Reporting Dashboard:** https://reporting.kazuyamiyata.site/
 
 ## Test Accounts
 - **Admin:** `admin@site.com` / `password123`
 - **Data Analyst:** `analyst@site.com` / `password123`
 - **Report Viewer:** `viewer@site.com` / `password123`
 
-## How to Test
-1. Visit `https://test.kazuyamiyata.site` and interact with the pages (click products, move mouse, browse to other pages, stay idle for 3 seconds).
-2. The `collector.js` script will aggregate interaction metrics, performance tracking, web vitals, static client data, and errors into JSON payloads.
-3. Upon navigation (or asynchronously), payloads are sent to `collector.kazuyamiyata.site` and stored in the MySQL `webanalytics` database across 4 relational tables: `sessions`, `pageviews`, `activities`, and `errors`.
+## Use of AI
 
-## Deviations & Notes
-- **Challenging Point Addressed:** Instead of relying solely on `sessionStorage`, we implemented **First-Party Cookies** in `collector.js` (`collector_sid`). This ensures the exact same cryptographic Session ID generated and used by the JavaScript payload is intrinsically passed along with every HTTP Request to the server, allowing us to perfectly tie server access logs (`test.kazuyamiyata.site-access.log`) with client-side event streams in MySQL.
-- **REST Implementation:** The reporting API uses a raw PHP front-controller architecture (`index.php`) utilizing `switch` and `PDO` instead of an MVC framework, demonstrating a deep understanding of core routing and HTTP methods.
+I used gemini often to help me debug issues after encountering them many times, like UNIX permission issues related to my github deployment, SQL syntax errors, and niche issues regarding graphing and visualizations that I would've spent much more time trying to figure out.
 
-## Files Included in Delivery
-- `log-verify.jpg`: Demonstrates the `collector_sid` captured in Apache logs.
-- `database-verify.jpg`: Demonstrates organic data ingested into MySQL.
-- `REST.png`: Demonstrates retrieving session data via a GET request from the Reporting API.
-- `example-routes.pdf`: Detail of available API endpoints.
-- `collector.js`: The final optimized tracking script.
+I think the value of these tools come best in an assitive capacity, where they can help you find solutions to problems you're already aware of, rather than generating entire features or codebases for you.
+Through working on this project, I asked several times about how they would implement certain features, but I realized the value in the work comes in the ability to make the decision on what structures and systems to design rather than having an AI make those decisions for you because of it's nature often selecting for the most common or simplest solutions which may not always be the best for my specific needs.
+
+## Roadmap
+
+I think in terms of what I would add to this project if I had more time, I would want to make the platform more much "no-code" friendly, allowing users to create custom reports and dashboards without having to make any complex edits. 
+
+I also want to make them more mutable, with a greater selection of visualizations and ways to display data because the only filter I was able to implement in a reasonable manner was based on time, and I think it would be cool to have more options for filtering and displaying data.
+
+Lastly, I think CRUD of user accounts and supporting multiple sites beyond just the test site is cool, as I think the collector script I made it super generalizable to any site so having the option to add it to any site and have it show up on the dashboard would be cool to see.

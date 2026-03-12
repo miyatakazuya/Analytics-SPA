@@ -565,10 +565,18 @@ async function reportsView() {
             window.loadedReports = reports;
 
             reports.forEach((r, idx) => {
+                let badgeClass = 'bg-info text-dark';
+                switch (r.category) {
+                    case 'overview': badgeClass = 'bg-primary text-white'; break;
+                    case 'demographics': badgeClass = 'bg-success text-white'; break;
+                    case 'behavior': badgeClass = 'bg-warning text-dark'; break;
+                    case 'performance': badgeClass = 'bg-danger text-white'; break;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="ps-4 fw-medium">${r.title}</td>
-                    <td><span class="badge bg-info text-dark">${r.category}</span></td>
+                    <td><span class="badge ${badgeClass}">${r.category}</span></td>
                     <td class="text-muted small">${r.author_email}</td>
                     <td class="text-muted small">${new Date(r.created_at).toLocaleString()}</td>
                     <td class="text-end pe-4">

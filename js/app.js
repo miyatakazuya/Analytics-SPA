@@ -338,22 +338,38 @@ function renderChart(canvas, type, data, options) {
         window.chartInstances[canvas.id].destroy();
     }
 
-    // Explicitly force legend mounting for robust visibility
+    const isPieOrDoughnut = type === 'pie' || type === 'doughnut';
+
+    // Explicitly force legend mounting and datalabels for robust visibility
     options = options || {};
     options.plugins = options.plugins || {};
-    if (type === 'pie' || type === 'doughnut') {
+    if (isPieOrDoughnut) {
         options.plugins.legend = { display: true, position: 'bottom' };
+        options.plugins.datalabels = {
+            color: '#fff',
+            font: { weight: 'bold', size: 14 },
+            formatter: (value) => {
+                return value > 0 ? value : '';
+            }
+        };
     } else {
         if (!options.plugins.legend) {
             options.plugins.legend = { display: true, position: 'top' };
         }
     }
 
-    window.chartInstances[canvas.id] = new Chart(ctx, {
+    const config = {
         type: type,
         data: data,
         options: options
-    });
+    };
+
+    // Inject datalabels plugin only for circular charts to prevent clutter on line/bar charts
+    if (isPieOrDoughnut && typeof ChartDataLabels !== 'undefined') {
+        config.plugins = [ChartDataLabels];
+    }
+
+    window.chartInstances[canvas.id] = new Chart(ctx, config);
 }
 async function demographicsView() {
     updateNavActive('#/demographics');

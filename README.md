@@ -1,6 +1,8 @@
 # CSE 135 Homework 5 - FINAL Project Submission
 Team / Individual: Kazuya Miyata
 
+Repository: https://github.com/miyatakazuya/Analytics-SPA
+
 ## Site Information
 - **Testing Site:** https://test.kazuyamiyata.site
 - **Collector Endpoint:** https://collector.kazuyamiyata.site/api/collect.php

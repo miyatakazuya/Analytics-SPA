@@ -36,7 +36,7 @@ async function loginView() {
         window.location.hash = '#/overview';
         return;
     }
-    document.getElementById('app-sidebar').classList.add('d-none'); // Hide sidebar on login
+    document.getElementById('app-sidebar').classList.add('d-none'); // Hide sidebar
     document.querySelector('.top-navbar').classList.add('d-none'); // Hide topbar
 
     setRendercontent('Login', `
@@ -98,14 +98,14 @@ async function checkAuth() {
 
         const data = await res.json();
 
-        // Ensure UI elements are visible for logged in users
+        // Show UI
         document.getElementById('app-sidebar').classList.remove('d-none');
         document.querySelector('.top-navbar').classList.remove('d-none');
 
         document.getElementById('login-status').textContent = data.user.displayName;
         document.getElementById('logout-btn').classList.remove('d-none');
 
-        // Store role globally to easily toggle "Save Report" button visibility
+        // Store state
         window.userRole = data.user.role;
         window.userPermissions = data.user.permissions || [];
         applyRoleRestrictions();
@@ -126,11 +126,11 @@ function applyRoleRestrictions() {
         if (link) {
             const category = route.replace('#/', '');
             if (window.userRole === 'viewer') {
-                link.style.display = 'none'; // Completely hide for viewers to clean up UI
+                link.style.display = 'none'; // Hide viewers
             } else if (window.userRole === 'analyst' && !window.userPermissions.includes(category)) {
-                link.style.display = 'none'; // Hide explicitly denied dashboards
+                link.style.display = 'none'; // Hide denied
             } else {
-                link.style.display = 'block'; // Ensure permitted links are visible
+                link.style.display = 'block'; // Show permitted
                 link.style.pointerEvents = 'auto';
                 link.style.opacity = '1';
                 link.classList.remove('disabled');
@@ -156,7 +156,7 @@ function renderTable(container, keys, rows) {
     const thead = document.createElement('thead');
     thead.className = 'table-light';
 
-    // Auto generate headers from keys
+    // Dynamic headers
     let headerRow = '<tr>';
     keys.forEach(k => { headerRow += `<th>${k.label}</th>`; });
     headerRow += '</tr>';
@@ -169,9 +169,9 @@ function renderTable(container, keys, rows) {
         keys.forEach(k => {
             const td = document.createElement('td');
             let val = row[k.key];
-            // Format numbers
+            // Format
             if (!isNaN(val) && val !== '') val = Number(val).toLocaleString();
-            td.textContent = val; // XSS safe
+            td.textContent = val; // Set text
             tr.appendChild(td);
         });
         tbody.appendChild(tr);
@@ -780,8 +780,8 @@ async function adminView() {
     const data = await checkAuth();
     if (data && data.user.role === 'super_admin') {
         setRendercontent('Admin Panel', `
-            <div class="row">
-                <div class="col-md-6">
+            <div class="row g-4">
+                <div class="col-md-5">
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
                             <h5 class="card-title fw-bold">Provision Analyst Account</h5>
@@ -825,8 +825,54 @@ async function adminView() {
                         </div>
                     </div>
                 </div>
+                <div class="col-md-7">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                            <h5 class="card-title fw-bold">Active Analysts</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive" id="admin-users-table">
+                                <div class="spinner-border text-primary" role="status"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         `);
+        fetchAdminUsers();
+    }
+}
+
+async function fetchAdminUsers() {
+    const container = document.getElementById('admin-users-table');
+    if (!container) return;
+    try {
+        const res = await fetch('/api/users', { credentials: 'include' });
+        if (res.ok) {
+            const users = await res.json();
+            if (users.length === 0) {
+                container.innerHTML = '<p class="text-muted">No users found.</p>';
+                return;
+            }
+            let html = '<table class="table table-hover align-middle"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Permissions</th><th>Actions</th></tr></thead><tbody>';
+            users.forEach(u => {
+                const perms = u.permissions.split(',').map(p => `<span class="badge bg-secondary me-1 px-2 py-1">${p}</span>`).join('');
+                const deleteBtn = u.role === 'super_admin' ? '' : `<button class="btn btn-sm btn-outline-danger delete-user-btn" data-id="${u.id}">Delete</button>`;
+                html += `<tr>
+                    <td>${u.display_name}</td>
+                    <td>${u.email}</td>
+                    <td><span class="badge bg-primary px-2 py-1">${u.role}</span></td>
+                    <td>${perms}</td>
+                    <td>${deleteBtn}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<p class="text-danger">Failed to load users.</p>';
+        }
+    } catch (err) {
+        container.innerHTML = '<p class="text-danger">Network error.</p>';
     }
 }
 
@@ -950,6 +996,7 @@ document.getElementById('app-content').addEventListener('submit', async (e) => {
             if (res.ok) {
                 msgDiv.innerHTML = `<div class="alert alert-success">Successfully provisioned <strong>${email}</strong></div>`;
                 document.getElementById('create-user-form').reset();
+                fetchAdminUsers();
             } else {
                 msgDiv.innerHTML = `<div class="alert alert-danger">${data.error || 'Failed to create user.'}</div>`;
             }
@@ -1155,5 +1202,23 @@ document.addEventListener('click', async (e) => {
                 btn.innerHTML = originalText;
             }, 1000);
         }, 100);
+    }
+});
+
+document.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('delete-user-btn')) {
+        const id = e.target.getAttribute('data-id');
+        if (confirm('Are you certain you wish to delete this analyst? This action cannot be reversed.')) {
+            try {
+                const res = await fetch('/api/users/' + id, { method: 'DELETE', credentials: 'include' });
+                if (res.ok) {
+                    fetchAdminUsers();
+                } else {
+                    alert('Failed to delete user.');
+                }
+            } catch (err) {
+                alert('Network error communicating with API.');
+            }
+        }
     }
 });

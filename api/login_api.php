@@ -1,13 +1,4 @@
 <?php
-// $pdo = new PDO('mysql:host=localhost;dbname=webanalytics', 'collector', 'C0ll3ct0r_!2026_Secure');
-// $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-// $method = $_SERVER['REQUEST_METHOD'];
-// $path = isset($_GET['path']) ? explode('/', trim($_GET['path'], '/')) : [];
-
-// $resource = $path[0] ?? null;
-// $id = $path[1] ?? null;
-
 session_start();
 
 $stmt = $pdo->prepare(

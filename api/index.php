@@ -28,7 +28,7 @@ try {
             exit;
         }
 
-        // RBAC Logic
+        // Check ACLs
         $role = $_SESSION['user']['role'];
         if ($role === 'viewer') {
             if ($method === 'PUT' || $method === 'DELETE' || !in_array($resource, ['reports', 'dashboard'])) {
@@ -157,6 +157,14 @@ try {
             }
         } elseif ($resource === 'dashboard') {
             echo json_encode(['user' => $_SESSION['user']]);
+        } elseif ($resource === 'users') {
+            if ($_SESSION['user']['role'] !== 'super_admin') {
+                http_response_code(403);
+                echo json_encode(['error' => 'Forbidden']);
+                exit;
+            }
+            $stmt = $pdo->query("SELECT id, email, display_name, role, permissions, created_at FROM users ORDER BY created_at DESC");
+            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Resource not found.']);
@@ -196,7 +204,7 @@ try {
             $newEmail = $input['email'] ?? '';
             $newPassword = $input['password'] ?? '';
             $newName = $input['displayName'] ?? '';
-            $newRole = 'analyst'; // Only creating analysts for now
+            $newRole = 'analyst'; // Analyst only
             $newPerms = $input['permissions'] ?? 'overview';
 
             if (empty($newEmail) || empty($newPassword)) {
@@ -216,7 +224,7 @@ try {
                     echo json_encode(['error' => 'Failed to create user.']);
                 }
             } catch (PDOException $e) {
-                if ($e->getCode() == 23000) { // Integrity constraint violation (duplicate email)
+                if ($e->getCode() == 23000) { // Duplicate email
                     http_response_code(409);
                     echo json_encode(['error' => 'User with this email already exists.']);
                 } else {
@@ -256,6 +264,16 @@ try {
     } elseif ($method === 'DELETE') {
         if ($resource === 'reports' && $id) {
             $stmt = $pdo->prepare("DELETE FROM reports WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(['success' => true]);
+            exit;
+        } elseif ($resource === 'users' && $id) {
+            if ($_SESSION['user']['role'] !== 'super_admin') {
+                http_response_code(403);
+                echo json_encode(['error' => 'Forbidden']);
+                exit;
+            }
+            $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
             $stmt->execute([$id]);
             echo json_encode(['success' => true]);
             exit;

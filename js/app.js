@@ -107,6 +107,7 @@ async function checkAuth() {
 
         // Store role globally to easily toggle "Save Report" button visibility
         window.userRole = data.user.role;
+        window.userPermissions = data.user.permissions || [];
         applyRoleRestrictions();
 
         return data;
@@ -123,15 +124,26 @@ function applyRoleRestrictions() {
     restrictedRoutes.forEach(route => {
         const link = document.querySelector(`.nav-link[data-route="${route}"]`);
         if (link) {
+            const category = route.replace('#/', '');
             if (window.userRole === 'viewer') {
-                link.style.pointerEvents = 'none';
-                link.style.opacity = '0.7';
-                link.classList.add('disabled');
+                link.style.display = 'none'; // Completely hide for viewers to clean up UI
+            } else if (window.userRole === 'analyst' && !window.userPermissions.includes(category)) {
+                link.style.display = 'none'; // Hide explicitly denied dashboards
             } else {
+                link.style.display = 'block'; // Ensure permitted links are visible
                 link.style.pointerEvents = 'auto';
                 link.style.opacity = '1';
                 link.classList.remove('disabled');
             }
+        }
+    });
+
+    const adminLinks = document.querySelectorAll('.admin-only-link');
+    adminLinks.forEach(link => {
+        if (window.userRole === 'super_admin') {
+            link.style.display = 'block';
+        } else {
+            link.style.display = 'none';
         }
     });
 }
@@ -763,6 +775,61 @@ function errorPageView(code = 404, title = 'Page Not Found', message = 'The requ
     document.getElementById('app-content').innerHTML = html;
 }
 
+async function adminView() {
+    updateNavActive('#/admin');
+    const data = await checkAuth();
+    if (data && data.user.role === 'super_admin') {
+        setRendercontent('Admin Panel', `
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                            <h5 class="card-title fw-bold">Provision Analyst Account</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="create-user-form">
+                                <div class="mb-3">
+                                    <label class="form-label">Email Address</label>
+                                    <input type="email" id="new-user-email" class="form-control" required placeholder="analyst@domain.com">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Display Name</label>
+                                    <input type="text" id="new-user-name" class="form-control" required placeholder="Jane Doe">
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label">Temporary Password</label>
+                                    <input type="password" id="new-user-password" class="form-control" required>
+                                </div>
+                                
+                                <h6 class="fw-bold mb-3">Dashboard Access Control (ACL)</h6>
+                                <div class="form-check form-switch mb-2">
+                                  <input class="form-check-input" type="checkbox" id="acl-overview" checked disabled>
+                                  <label class="form-check-label" for="acl-overview">Overview <span class="badge bg-secondary ms-1">Required</span></label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                  <input class="form-check-input" type="checkbox" id="acl-demographics" checked>
+                                  <label class="form-check-label" for="acl-demographics">Demographics</label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                  <input class="form-check-input" type="checkbox" id="acl-behavior" checked>
+                                  <label class="form-check-label" for="acl-behavior">Behavior</label>
+                                </div>
+                                <div class="form-check form-switch mb-4">
+                                  <input class="form-check-input" type="checkbox" id="acl-performance" checked>
+                                  <label class="form-check-label" for="acl-performance">Performance</label>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary w-100" id="create-user-btn">Create Analyst Account</button>
+                            </form>
+                            <div id="admin-msg" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+}
+
 // Router
 function router() {
     let hash = window.location.hash;
@@ -774,6 +841,12 @@ function router() {
 
     console.log(`Navigating to: ${hash}`);
 
+    const hasPermission = (category) => {
+        if (window.userRole === 'super_admin') return true;
+        if (window.userRole === 'viewer') return false;
+        return window.userPermissions && window.userPermissions.includes(category);
+    };
+
     switch (hash) {
         case '#/login':
             loginView();
@@ -783,19 +856,23 @@ function router() {
             overviewView();
             break;
         case '#/performance':
-            if (window.userRole === 'viewer') return errorPageView(403, 'Access Denied', 'Viewer accounts cannot access live data dashboards.');
+            if (!hasPermission('performance')) return errorPageView();
             performanceView();
             break;
         case '#/demographics':
-            if (window.userRole === 'viewer') return errorPageView(403, 'Access Denied', 'Viewer accounts cannot access live data dashboards.');
+            if (!hasPermission('demographics')) return errorPageView();
             demographicsView();
             break;
         case '#/behavior':
-            if (window.userRole === 'viewer') return errorPageView(403, 'Access Denied', 'Viewer accounts cannot access live data dashboards.');
+            if (!hasPermission('behavior')) return errorPageView();
             behaviorView();
             break;
         case '#/reports':
             reportsView();
+            break;
+        case '#/admin':
+            if (window.userRole !== 'super_admin') return errorPageView();
+            adminView();
             break;
         default:
             errorPageView();
@@ -826,9 +903,9 @@ document.getElementById('app-content').addEventListener('submit', async (e) => {
 
             if (res.ok && data.success) {
                 if (data.data && data.data.role === 'viewer') {
-                    window.location.href = '#/reports';
+                    window.location.hash = '#/reports';
                 } else {
-                    window.location.href = '#/overview';
+                    window.location.hash = '#/overview';
                 }
             } else {
                 errorDiv.textContent = data.error || 'Login failed';
@@ -837,6 +914,50 @@ document.getElementById('app-content').addEventListener('submit', async (e) => {
         } catch (err) {
             errorDiv.textContent = 'Network error. Please try again.';
             errorDiv.hidden = false;
+        }
+    } else if (e.target.id === 'create-user-form') {
+        e.preventDefault();
+
+        const email = document.getElementById('new-user-email').value;
+        const displayName = document.getElementById('new-user-name').value;
+        const password = document.getElementById('new-user-password').value;
+        const btn = document.getElementById('create-user-btn');
+        const msgDiv = document.getElementById('admin-msg');
+
+        let perms = ['overview']; // Always mandated
+        if (document.getElementById('acl-demographics').checked) perms.push('demographics');
+        if (document.getElementById('acl-behavior').checked) perms.push('behavior');
+        if (document.getElementById('acl-performance').checked) perms.push('performance');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Processing...';
+
+        try {
+            const res = await fetch('/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    email,
+                    displayName,
+                    password,
+                    permissions: perms.join(',')
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                msgDiv.innerHTML = `<div class="alert alert-success">Successfully provisioned <strong>${email}</strong></div>`;
+                document.getElementById('create-user-form').reset();
+            } else {
+                msgDiv.innerHTML = `<div class="alert alert-danger">${data.error || 'Failed to create user.'}</div>`;
+            }
+        } catch (err) {
+            msgDiv.innerHTML = `<div class="alert alert-danger">Network error communicating with API.</div>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Create Analyst Account';
         }
     }
 });

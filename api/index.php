@@ -36,6 +36,14 @@ try {
                 echo json_encode(['error' => 'Forbidden. Viewers cannot modify reports or access raw data.']);
                 exit;
             }
+        } elseif ($role === 'analyst' && $resource === 'data' && $method === 'GET') {
+            $category = $_GET['category'] ?? '';
+            $perms = $_SESSION['user']['permissions'] ?? [];
+            if (!in_array($category, $perms)) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Forbidden. You do not have permission to view the ' . htmlspecialchars($category) . ' dashboard.']);
+                exit;
+            }
         }
     }
 
@@ -176,6 +184,45 @@ try {
             } else {
                 http_response_code(500);
                 echo json_encode(['error' => 'Failed to save report.']);
+            }
+            exit;
+        } elseif ($resource === 'users') {
+            if ($_SESSION['user']['role'] !== 'super_admin') {
+                http_response_code(403);
+                echo json_encode(['error' => 'Forbidden. Only administrators can create users.']);
+                exit;
+            }
+            $input = json_decode(file_get_contents('php://input'), true);
+            $newEmail = $input['email'] ?? '';
+            $newPassword = $input['password'] ?? '';
+            $newName = $input['displayName'] ?? '';
+            $newRole = 'analyst'; // Only creating analysts for now
+            $newPerms = $input['permissions'] ?? 'overview';
+
+            if (empty($newEmail) || empty($newPassword)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Email and password are required']);
+                exit;
+            }
+
+            $hash = password_hash($newPassword, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO users (email, password_hash, display_name, role, permissions) VALUES (?, ?, ?, ?, ?)");
+            try {
+                if ($stmt->execute([$newEmail, $hash, $newName, $newRole, $newPerms])) {
+                    http_response_code(201);
+                    echo json_encode(['success' => true]);
+                } else {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Failed to create user.']);
+                }
+            } catch (PDOException $e) {
+                if ($e->getCode() == 23000) { // Integrity constraint violation (duplicate email)
+                    http_response_code(409);
+                    echo json_encode(['error' => 'User with this email already exists.']);
+                } else {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Database error.']);
+                }
             }
             exit;
         } elseif ($resource === 'logout') {

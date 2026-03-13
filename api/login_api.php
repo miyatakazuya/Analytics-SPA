@@ -11,7 +11,7 @@
 session_start();
 
 $stmt = $pdo->prepare(
-    'SELECT id, email, password_hash, display_name, role FROM users WHERE email = ?'
+    'SELECT id, email, password_hash, display_name, role, permissions FROM users WHERE email = ?'
 );
 $stmt->execute([$email]);
 $user = $stmt->fetch();
@@ -26,7 +26,8 @@ session_regenerate_id(true);
 $_SESSION['user'] = [
     'email' => $user['email'],
     'displayName' => $user['display_name'],
-    'role' => $user['role']
+    'role' => $user['role'],
+    'permissions' => explode(',', $user['permissions'] ?? '')
 ];
 echo json_encode(['success' => true, 'data' => $_SESSION['user']]);
 exit;

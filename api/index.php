@@ -39,7 +39,8 @@ try {
         } elseif ($role === 'analyst' && $resource === 'data' && $method === 'GET') {
             $category = $_GET['category'] ?? '';
             $perms = $_SESSION['user']['permissions'] ?? [];
-            if (!in_array($category, $perms)) {
+            $checkCat = $category === 'realtime' ? 'overview' : $category;
+            if (!in_array($checkCat, $perms)) {
                 http_response_code(403);
                 echo json_encode(['error' => 'Forbidden. You do not have permission to view the ' . htmlspecialchars($category) . ' dashboard.']);
                 exit;
@@ -142,6 +143,16 @@ try {
                     'topClicks' => $topClicks,
                     'activeTime' => $activeTime
                 ]);
+            } elseif ($category === 'realtime') {
+                $stmt = $pdo->query("
+                    SELECT COUNT(DISTINCT session_id) as activeUsers 
+                    FROM (
+                        SELECT session_id FROM pageviews WHERE created_at >= DATE_SUB(NOW(), INTERVAL 3 MINUTE)
+                        UNION 
+                        SELECT session_id FROM activities WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 3 MINUTE)
+                    ) AS recent_sessions
+                ");
+                echo json_encode(['activeUsers' => (int)$stmt->fetchColumn()]);
             } else {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid category specified.']);

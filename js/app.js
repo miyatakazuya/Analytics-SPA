@@ -11,7 +11,7 @@ function updateNavActive(hash) {
 }
 
 function setHeader(title, actionsHtml = '') {
-    pageTitle.textContent = title;
+    pageTitle.innerHTML = title;
     topActions.innerHTML = actionsHtml;
 }
 
@@ -188,7 +188,8 @@ async function overviewView() {
     updateNavActive('#/overview');
     const data = await checkAuth();
     if (data) {
-        setRendercontent('Overview', `
+        const liveBadge = `<div class="d-inline-flex align-items-center ms-3 fs-6 fw-normal"><span class="badge bg-danger rounded-pill px-3 py-2 shadow-sm border border-white border-2"><span class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true" style="width: 0.5rem; height: 0.5rem;"></span>Live: <span id="realtime-count">--</span> Active Users</span></div>`;
+        setRendercontent('Overview' + liveBadge, `
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="card border-0 shadow-sm h-100">
@@ -266,6 +267,7 @@ async function overviewView() {
         } catch (e) {
             console.error('Failed to load overview data', e);
         }
+        startRealtimePolling();
     }
 }
 
@@ -878,6 +880,10 @@ async function fetchAdminUsers() {
 
 // Router
 function router() {
+    if (window.realtimeInterval) {
+        clearInterval(window.realtimeInterval);
+        window.realtimeInterval = null;
+    }
     let hash = window.location.hash;
 
     if (!hash || hash === '') {
@@ -1222,3 +1228,25 @@ document.addEventListener('click', async (e) => {
         }
     }
 });
+
+function startRealtimePolling() {
+    const fetchRealtime = async () => {
+        const counter = document.getElementById('realtime-count');
+        if (!counter) return; // Terminate if DOM element is missing 
+        try {
+            const res = await fetch('/api/data?category=realtime', { credentials: 'include', cache: 'no-store' });
+            if (res.ok) {
+                const data = await res.json();
+                counter.textContent = data.activeUsers || 0;
+            }
+        } catch (err) {
+            console.error('Realtime polling failed:', err);
+        }
+    };
+
+    // Initial fetch
+    fetchRealtime();
+
+    // Poll every 15 seconds
+    window.realtimeInterval = setInterval(fetchRealtime, 15000);
+}

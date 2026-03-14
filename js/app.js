@@ -475,7 +475,7 @@ async function behaviorView() {
                     <div class="card-body">
                         <div id="heatmap-wrapper" style="position: relative; width: 100%; height: 600px; overflow: hidden; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;">
                             <!-- Scaled up to 166.66% so that scaling down by 0.6 fits perfectly to 100% bounds -->
-                            <iframe id="heatmap-iframe" src="https://test.kazuyamiyata.site/" scrolling="no" style="position: absolute; top: 0; left: 0; width: 166.66%; height: 166.66%; border: none; transform: scale(0.6); transform-origin: top left; pointer-events: none; background: white;"></iframe>
+                            <img id="heatmap-bg-img" src="assets/heatmaps/home.png" style="position: absolute; top: 0; left: 0; width: 166.66%; border: none; transform: scale(0.6); transform-origin: top left; pointer-events: none; background: white; object-fit: contain; object-position: top left;">
                             <div id="heatmap-canvas-overlay" style="position: absolute; top: 0; left: 0; width: 166.66%; height: 166.66%; transform: scale(0.6); transform-origin: top left; pointer-events: none;"></div>
                         </div>
                     </div>
@@ -519,8 +519,10 @@ async function behaviorView() {
     // Heatmap Logic
     let heatmapInstance = null;
     const loadHeatmap = async (url) => {
-        const iframe = document.getElementById('heatmap-iframe');
-        if (iframe) iframe.src = url;
+        const bgImg = document.getElementById('heatmap-bg-img');
+        if (bgImg) {
+            bgImg.src = url.includes('products') ? 'assets/heatmaps/products.png' : 'assets/heatmaps/home.png';
+        }
 
         try {
             const mapRes = await fetch('/api/data?category=heatmap&url=' + encodeURIComponent(url), { credentials: 'include' });

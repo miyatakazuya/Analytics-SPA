@@ -153,6 +153,17 @@ try {
                     ) AS recent_sessions
                 ");
                 echo json_encode(['activeUsers' => (int)$stmt->fetchColumn()]);
+            } elseif ($category === 'heatmap') {
+                $targetUrl = $_GET['url'] ?? 'https://kazuyamiyata.site/';
+                $stmt = $pdo->prepare("
+                    SELECT a.x_coord as x, a.y_coord as y, COUNT(*) as value
+                    FROM activities a
+                    JOIN pageviews p ON a.session_id = p.session_id
+                    WHERE p.url = ? AND a.activity_type = 'click' AND a.timestamp BETWEEN p.enter_time AND COALESCE(p.leave_time, NOW())
+                    GROUP BY a.x_coord, a.y_coord
+                ");
+                $stmt->execute([$targetUrl]);
+                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
             } else {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid category specified.']);

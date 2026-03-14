@@ -468,14 +468,14 @@ async function behaviorView() {
                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Click Heatmap Explorer</h5>
                         <select id="heatmap-url-select" class="form-select w-auto shadow-sm">
-                            <option value="https://kazuyamiyata.site/">Home Page (kazuyamiyata.site/)</option>
-                            <option value="https://kazuyamiyata.site/about/">About Page (kazuyamiyata.site/about/)</option>
+                            <option value="https://test.kazuyamiyata.site/">Home Page (test.kazuyamiyata.site/)</option>
+                            <option value="https://test.kazuyamiyata.site/about/">About Page (test.kazuyamiyata.site/about/)</option>
                         </select>
                     </div>
                     <div class="card-body">
                         <div id="heatmap-wrapper" style="position: relative; width: 100%; height: 600px; overflow: hidden; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;">
                             <!-- Scaled up to 166.66% so that scaling down by 0.6 fits perfectly to 100% bounds -->
-                            <iframe id="heatmap-iframe" src="https://kazuyamiyata.site/" scrolling="no" style="position: absolute; top: 0; left: 0; width: 166.66%; height: 166.66%; border: none; transform: scale(0.6); transform-origin: top left; pointer-events: none; background: white;"></iframe>
+                            <iframe id="heatmap-iframe" src="https://test.kazuyamiyata.site/" scrolling="no" style="position: absolute; top: 0; left: 0; width: 166.66%; height: 166.66%; border: none; transform: scale(0.6); transform-origin: top left; pointer-events: none; background: white;"></iframe>
                             <div id="heatmap-canvas-overlay" style="position: absolute; top: 0; left: 0; width: 166.66%; height: 166.66%; transform: scale(0.6); transform-origin: top left; pointer-events: none;"></div>
                         </div>
                     </div>
@@ -565,7 +565,7 @@ async function behaviorView() {
     });
 
     // Initial load
-    loadHeatmap('https://kazuyamiyata.site/');
+    loadHeatmap('https://test.kazuyamiyata.site/');
 }
 
 async function reportsView() {

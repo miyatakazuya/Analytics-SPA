@@ -154,7 +154,7 @@ try {
                 ");
                 echo json_encode(['activeUsers' => (int)$stmt->fetchColumn()]);
             } elseif ($category === 'heatmap') {
-                $targetUrl = $_GET['url'] ?? 'https://kazuyamiyata.site/';
+                $targetUrl = $_GET['url'] ?? 'https://test.kazuyamiyata.site/';
                 $stmt = $pdo->prepare("
                     SELECT a.x_coord as x, a.y_coord as y, COUNT(*) as value
                     FROM activities a

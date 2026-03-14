@@ -469,7 +469,7 @@ async function behaviorView() {
                         <h5 class="card-title mb-0">Click Heatmap Explorer</h5>
                         <select id="heatmap-url-select" class="form-select w-auto shadow-sm">
                             <option value="https://test.kazuyamiyata.site/">Home Page (test.kazuyamiyata.site/)</option>
-                            <option value="https://test.kazuyamiyata.site/about/">About Page (test.kazuyamiyata.site/about/)</option>
+                            <option value="https://test.kazuyamiyata.site/products.html">Products Page (test.kazuyamiyata.site/products.html)</option>
                         </select>
                     </div>
                     <div class="card-body">

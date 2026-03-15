@@ -285,7 +285,9 @@ async function performanceView() {
                             <h5 class="card-title mb-0">Pageviews Over Time</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="pageviews-chart" class="w-100" style="height: 250px; background: #fff;"></canvas>
+                            <div style="position: relative; height: 250px; width: 100%; background: #fff;">
+                                <canvas id="pageviews-chart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -398,7 +400,9 @@ async function demographicsView() {
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Browser Market Share</h5></div>
                     <div class="card-body">
-                        <canvas id="browser-chart" class="w-100" style="height: 250px;"></canvas>
+                        <div style="position: relative; height: 250px; width: 100%;">
+                            <canvas id="browser-chart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -406,7 +410,9 @@ async function demographicsView() {
                  <div class="card border-0 shadow-sm h-100">
                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Network Types</h5></div>
                     <div class="card-body">
-                        <canvas id="network-chart" class="w-100" style="height: 250px;"></canvas>
+                        <div style="position: relative; height: 250px; width: 100%;">
+                            <canvas id="network-chart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -450,7 +456,9 @@ async function behaviorView() {
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Average Active Time Per Day (Seconds)</h5></div>
                     <div class="card-body">
-                        <canvas id="active-time-chart" class="w-100" style="height: 250px; background: #fff;"></canvas>
+                        <div style="position: relative; height: 250px; width: 100%; background: #fff;">
+                            <canvas id="active-time-chart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -458,7 +466,9 @@ async function behaviorView() {
                  <div class="card border-0 shadow-sm h-100">
                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0"><h5 class="card-title mb-0">Most Clicked HTML Tags</h5></div>
                     <div class="card-body">
-                        <canvas id="clicks-chart" class="w-100" style="height: 250px;"></canvas>
+                        <div style="position: relative; height: 250px; width: 100%;">
+                            <canvas id="clicks-chart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>

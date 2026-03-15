@@ -9,9 +9,7 @@ Repository: https://github.com/miyatakazuya/Analytics-SPA
 - **Reporting Dashboard:** https://reporting.kazuyamiyata.site/
 
 ## Test Accounts
-- **Admin:** `admin@site.com` / `password123`
-- **Data Analyst:** `analyst@site.com` / `password123`
-- **Report Viewer:** `viewer@site.com` / `password123`
+REDACTED
 
 ## Use of AI
 

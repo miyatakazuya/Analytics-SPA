@@ -120,14 +120,16 @@ async function checkAuth() {
 }
 
 function applyRoleRestrictions() {
-    const restrictedRoutes = ['#/overview', '#/demographics', '#/behavior', '#/performance'];
+    const restrictedRoutes = ['#/overview', '#/demographics', '#/behavior', '#/performance', '#/heatmap'];
     restrictedRoutes.forEach(route => {
         const link = document.querySelector(`.nav-link[data-route="${route}"]`);
         if (link) {
             const category = route.replace('#/', '');
+            const requiredPerm = category === 'heatmap' ? 'behavior' : category;
+
             if (window.userRole === 'viewer') {
                 link.style.display = 'none'; // Hide viewers
-            } else if (window.userRole === 'analyst' && !window.userPermissions.includes(category)) {
+            } else if (window.userRole === 'analyst' && !window.userPermissions.includes(requiredPerm)) {
                 link.style.display = 'none'; // Hide denied
             } else {
                 link.style.display = 'block'; // Show permitted
@@ -461,29 +463,6 @@ async function behaviorView() {
                 </div>
             </div>
         </div>
-        
-        <div class="row g-4 mt-1">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Click Heatmap Explorer</h5>
-                        <select id="heatmap-url-select" class="form-select w-auto shadow-sm">
-                            <option value="https://test.kazuyamiyata.site/">Home Page (test.kazuyamiyata.site/)</option>
-                            <option value="https://test.kazuyamiyata.site/products.html">Products Page (test.kazuyamiyata.site/products.html)</option>
-                        </select>
-                    </div>
-                    <div class="card-body">
-                        <div id="heatmap-wrapper" style="position: relative; width: 100%; height: 600px; overflow: hidden; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;">
-                            <!-- Heatmap container fixed pixel width to prevent html2canvas percentage-collapse loops -->
-                            <div id="heatmap-inner-container" style="position: absolute; top: 0; left: 0; width: 1500px; height: 1000px; transform: scale(0.6); transform-origin: top left; pointer-events: none;">
-                                <img id="heatmap-bg-img" src="assets/heatmaps/home.png" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; pointer-events: none; background: white;">
-                                <div id="heatmap-canvas-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     `, getSaveReportButton('behavior', 'currentReportData'));
 
     try {
@@ -518,13 +497,49 @@ async function behaviorView() {
         console.error("Behavior charts fetch failed", e);
     }
 
+}
+
+async function heatmapExplorerView() {
+    updateNavActive('#/heatmap');
+    const data = await checkAuth();
+    if (!data) return;
+
+    // Permissions check - tied to 'behavior' category natively by router
+    if (window.userRole !== 'super_admin' && window.userRole !== 'admin') {
+        if (window.userRole === 'viewer' || (window.userRole === 'analyst' && !window.userPermissions.includes('behavior'))) {
+            setRendercontent('Access Denied', '<div class="alert alert-danger shadow-sm border-0 border-start border-danger border-4"><i class="bi bi-x-octagon-fill me-2"></i>You do not have permission to access the heatmap explorer.</div>', '');
+            return;
+        }
+    }
+
+    setRendercontent('Heatmap Explorer', `
+        <div class="row g-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Click Heatmap Explorer</h5>
+                        <select id="heatmap-url-select" class="form-select w-auto shadow-sm">
+                            <option value="https://test.kazuyamiyata.site/">Home Page (test.kazuyamiyata.site/)</option>
+                            <option value="https://test.kazuyamiyata.site/products.html">Products Page (test.kazuyamiyata.site/products.html)</option>
+                        </select>
+                    </div>
+                    <div class="card-body">
+                        <div id="heatmap-wrapper" style="position: relative; width: 100%; height: 600px; overflow: hidden; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;">
+                            <!-- Scaled up to 166.66% so that scaling down by 0.6 fits perfectly to 100% bounds -->
+                            <iframe id="heatmap-iframe" src="https://test.kazuyamiyata.site/" scrolling="no" style="position: absolute; top: 0; left: 0; width: 166.66%; height: 166.66%; border: none; transform: scale(0.6); transform-origin: top left; pointer-events: none; background: white;"></iframe>
+                            <div id="heatmap-canvas-overlay" style="position: absolute; top: 0; left: 0; width: 166.66%; height: 166.66%; transform: scale(0.6); transform-origin: top left; pointer-events: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `, ''); // NO PDF EXPORT BUTTON
+
     // Heatmap Logic
     let heatmapInstance = null;
     const loadHeatmap = async (url) => {
-        const bgImg = document.getElementById('heatmap-bg-img');
-        if (bgImg) {
-            bgImg.src = url.includes('products') ? 'assets/heatmaps/products.png' : 'assets/heatmaps/home.png';
-        }
+        const iframe = document.getElementById('heatmap-iframe');
+        if (iframe) iframe.src = url;
 
         try {
             const mapRes = await fetch('/api/data?category=heatmap&url=' + encodeURIComponent(url), { credentials: 'include' });
@@ -996,6 +1011,9 @@ function router() {
         case '#/behavior':
             if (!hasPermission('behavior')) return errorPageView();
             behaviorView();
+            break;
+        case '#/heatmap':
+            heatmapExplorerView();
             break;
         case '#/reports':
             reportsView();

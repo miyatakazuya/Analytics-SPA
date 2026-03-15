@@ -380,7 +380,6 @@ function renderChart(canvas, type, data, options) {
         options: options
     };
 
-    // Inject datalabels plugin only for circular charts to prevent clutter on line/bar charts
     if (isPieOrDoughnut && typeof ChartDataLabels !== 'undefined') {
         config.plugins = [ChartDataLabels];
     }
@@ -504,7 +503,6 @@ async function heatmapExplorerView() {
     const data = await checkAuth();
     if (!data) return;
 
-    // Permissions check - tied to 'behavior' category natively by router
     if (window.userRole !== 'super_admin' && window.userRole !== 'admin') {
         if (window.userRole === 'viewer' || (window.userRole === 'analyst' && !window.userPermissions.includes('behavior'))) {
             setRendercontent('Access Denied', '<div class="alert alert-danger shadow-sm border-0 border-start border-danger border-4"><i class="bi bi-x-octagon-fill me-2"></i>You do not have permission to access the heatmap explorer.</div>', '');
@@ -533,7 +531,7 @@ async function heatmapExplorerView() {
                 </div>
             </div>
         </div>
-    `, ''); // NO PDF EXPORT BUTTON
+    `, '');
 
     // Heatmap Logic
     let heatmapInstance = null;
@@ -693,7 +691,6 @@ async function reportsView() {
                 tbody.appendChild(tr);
             });
 
-            // Re-bind click handlers for the view buttons
             document.querySelectorAll('.view-report-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const r = window.loadedReports[e.target.getAttribute('data-idx')];
@@ -738,7 +735,7 @@ async function reportsView() {
                     modalEl.style.display = 'block';
                     modalEl.style.backgroundColor = 'rgba(0,0,0,0.5)';
 
-                    // Render Snapshot AFTER modal is visible
+                    // Render Snapshot 
                     const container = document.getElementById('vr-snapshot-container');
                     container.innerHTML = '';
                     try {
@@ -1152,26 +1149,23 @@ function exportToPDF(elementId, filename, metadata = null) {
         element.insertBefore(header, element.firstChild);
     }
 
-    // Swap Canvas for static Base64 IMG tags to prevent html2canvas fluid CSS stretch bugs
     const canvases = Array.from(element.querySelectorAll('canvas'));
     const imgSwaps = [];
     canvases.forEach(canvas => {
         const img = document.createElement('img');
         img.src = canvas.toDataURL('image/png', 1.0);
-        img.className = canvas.className;
 
-        // Preserve width footprint but allow height to scale proportionally natively
-        img.style.cssText = canvas.style.cssText;
-        img.style.width = '100%';
-        img.style.height = 'auto';
-        img.style.maxWidth = '100%';
+        img.style.width = canvas.offsetWidth + 'px';
+        img.style.height = canvas.offsetHeight + 'px';
+        img.style.maxWidth = canvas.offsetWidth + 'px';
+        img.className = canvas.className.replace(/w-\d+/g, '').replace(/h-\d+/g, '');
 
+        const originalDisplay = canvas.style.display;
         canvas.style.display = 'none';
         canvas.parentNode.insertBefore(img, canvas);
-        imgSwaps.push({ canvas, img });
+        imgSwaps.push({ canvas, img, originalDisplay });
     });
 
-    // Configure PDF layout & Canvas scaling to prevent pixelation
     const opt = {
         margin: 0.5,
         filename: filename,
@@ -1182,9 +1176,8 @@ function exportToPDF(elementId, filename, metadata = null) {
 
     html2pdf().set(opt).from(element).save().then(() => {
         if (header) header.remove();
-        // Restore interactive canvases
         imgSwaps.forEach(swap => {
-            swap.canvas.style.display = '';
+            swap.canvas.style.display = swap.originalDisplay || '';
             swap.img.remove();
         });
     });
@@ -1199,7 +1192,6 @@ document.addEventListener('click', async (e) => {
         const btn = e.target.closest('.save-report-btn');
         const category = btn.getAttribute('data-category');
 
-        // Inject Modal if not exists
         if (!document.getElementById('saveReportModal')) {
             const modalHtml = `
             <div class="modal fade" id="saveReportModal" tabindex="-1" aria-hidden="true">
@@ -1320,7 +1312,6 @@ document.addEventListener('click', async (e) => {
             }
         }
 
-        // Timeout to allow UI to render spinner before main thread blocks for canvas processing
         setTimeout(() => {
             exportToPDF(targetId, titleName, metadata);
             setTimeout(() => {
@@ -1352,7 +1343,7 @@ document.addEventListener('click', async (e) => {
 function startRealtimePolling() {
     const fetchRealtime = async () => {
         const counter = document.getElementById('realtime-count');
-        if (!counter) return; // Terminate if DOM element is missing 
+        if (!counter) return; // Terminate if DOM missing 
         try {
             const res = await fetch('/api/data?category=realtime', { credentials: 'include', cache: 'no-store' });
             if (res.ok) {
@@ -1364,9 +1355,7 @@ function startRealtimePolling() {
         }
     };
 
-    // Initial fetch
     fetchRealtime();
 
-    // Poll every 15 seconds
     window.realtimeInterval = setInterval(fetchRealtime, 15000);
 }

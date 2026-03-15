@@ -1152,6 +1152,25 @@ function exportToPDF(elementId, filename, metadata = null) {
         element.insertBefore(header, element.firstChild);
     }
 
+    // Swap Canvas for static Base64 IMG tags to prevent html2canvas fluid CSS stretch bugs
+    const canvases = Array.from(element.querySelectorAll('canvas'));
+    const imgSwaps = [];
+    canvases.forEach(canvas => {
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png', 1.0);
+        img.className = canvas.className;
+
+        // Preserve width footprint but allow height to scale proportionally natively
+        img.style.cssText = canvas.style.cssText;
+        img.style.width = '100%';
+        img.style.height = 'auto';
+        img.style.maxWidth = '100%';
+
+        canvas.style.display = 'none';
+        canvas.parentNode.insertBefore(img, canvas);
+        imgSwaps.push({ canvas, img });
+    });
+
     // Configure PDF layout & Canvas scaling to prevent pixelation
     const opt = {
         margin: 0.5,
@@ -1163,6 +1182,11 @@ function exportToPDF(elementId, filename, metadata = null) {
 
     html2pdf().set(opt).from(element).save().then(() => {
         if (header) header.remove();
+        // Restore interactive canvases
+        imgSwaps.forEach(swap => {
+            swap.canvas.style.display = '';
+            swap.img.remove();
+        });
     });
 }
 

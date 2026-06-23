@@ -5,7 +5,7 @@ import './index.css';
 
 function App() {
   return (
-    <div >
+    <div className="app-container">
       <Sidebar />
       <main className="main-content">
         <Dashboard />
@@ -15,4 +15,3 @@ function App() {
 }
 
 export default App;
-

@@ -23,7 +23,7 @@ const Dashboard: React.FC = () => {
       <div className="glass-panel" style={{ padding: '24px' }}>
         <h3 style={{ marginBottom: '24px', color: 'var(--text-secondary)' }}>Traffic Trends</h3>
         <div style={{ height: '350px' }}>
-          <div>Chart Placeholder</div>
+          <TrafficChart />
         </div>
       </div>
     </div>

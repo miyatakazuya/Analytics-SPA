@@ -11,7 +11,7 @@ const AIChatBar: React.FC = () => {
     if (!prompt.trim()) return;
 
     setIsLoading(true);
-    
+    setResponse(null);
 
     // Mock API call
     setTimeout(() => {
@@ -82,4 +82,3 @@ const AIChatBar: React.FC = () => {
 };
 
 export default AIChatBar;
-

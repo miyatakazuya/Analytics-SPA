@@ -11,7 +11,7 @@ const Dashboard: React.FC = () => {
         <p style={{ color: 'var(--text-secondary)' }}>Your web traffic performance at a glance.</p>
       </header>
 
-      
+      <AIChatBar />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px' }}>
         <StatCard title="Total Visitors" value="12,450" trend="+15%" isPositive={true} />
@@ -31,4 +31,3 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
-

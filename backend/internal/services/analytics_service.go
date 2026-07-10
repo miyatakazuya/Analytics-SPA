@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/miyatakazuya/Analytics-SPA/backend/internal/database"
-	"github.com/redis/go-redis/v9"
 )
 
 func GetOverviewMetrics() (map[string]interface{}, error) {

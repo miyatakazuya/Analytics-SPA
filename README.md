@@ -1,6 +1,7 @@
 # Analytics-SPA
 
 [![CI Pipeline](https://github.com/miyatakazuya/Analytics-SPA/actions/workflows/ci.yml/badge.svg)](https://github.com/miyatakazuya/Analytics-SPA/actions/workflows/ci.yml)
+
 Analytics-SPA is a modern, highly scalable Single Page Application (SPA) designed to provide real-time web analytics and insights. Built with a robust Go backend and a responsive React frontend, it offers a seamless experience for tracking and analyzing web traffic.
 
 ## Features
